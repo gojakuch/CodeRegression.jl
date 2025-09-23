@@ -1,6 +1,6 @@
 struct Candidate
     AST::Expr
-end # probably need some signatures
+end # probably needs to store the signature, variable types and the history
 
 # user defined operations and functions allowed
 
@@ -20,30 +20,10 @@ end # probably need some signatures
 
 # ADVERTISE IT A LOT AND MAYBE WRITE A PAPER
 
-
-ex = quote 
-    for i in 1:100
-        println(i)
-    end
-end
-
-ex.head
-typeof(ex.args[1])
-
 ALLOWED_OPERATIONS = []
 ALLOWED_COMBINATIONS = []
 
-ex = :(a + b * c)
-
-ex = quote
-    if x > 0
-        return 1
-    else 
-        2
-    end
-end
-
-a = :(a + b)
+include("utils.jl")
 
 f1 = quote
     function (x)
@@ -63,32 +43,28 @@ f2 = quote
 end
 f2 = f2.args[2]
 
-function check_expr_type(e::Expr, t::Symbol)
-    if e.head != t
-        error("expected expression of type :" * string(t) * " but :" * string(e.head) * " was given")
-    end
-end
-
-function get_body(f::Expr) 
-    check_expr_type(f, :function)
-    f.args[2]
-end
-
-function get_signature(f::Expr) 
-    check_expr_type(f, :function)
-    f.args[1]
-end
-
 function reproduce(f1::Expr, f2::Expr)
     body1 = get_body(f1)
     (typeof(body1.args[end]) != Expr || body1.args[end].head != :return) && (body1.args[end] = Expr(:return, body1.args[end])) # add return to the last value
     body2 = get_body(f2)
     (typeof(body2.args[end]) != Expr || body2.args[end].head != :return) && (body2.args[end] = Expr(:return, body2.args[end])) # add return to the last value
 
-    function find_subblocks(block) 
+    function find_subblocks(block::Expr)::Array{Expr} # only searches for blocks, but maybe we need blocks of matching types(?)
         check_expr_type(block, :block)
 
-        
+        subblocks::Array{Expr} = Expr[]
+
+        function iter(p::Expr)
+            if p.head == :block
+                push!(subblocks, p)
+            end
+        end
+        iter(_::LineNumberNode) = nothing
+        for p in block
+            iter(p)
+        end
+
+        return subblocks
     end
 
     function random_body_merge(body1, body2, arg)
@@ -103,6 +79,18 @@ function reproduce(f1::Expr, f2::Expr)
             # smarter combination
             # find a subblock for both bodies (if, for or whatever)
             # either merge them recursively (if possible) or add one body to the subblock of another (maybe partially?)
+            subblocks1 = find_subblocks(body1)
+            subblocks2 = find_subblocks(body2)
+
+            if !empty(subblocks1)
+                if !empty(subblocks2)
+                    new_body = random_body_merge(rand(subblocks1), rand(subblocks2), arg)
+                else
+                    new_body = copy(rand(subblocks1)) # nope, need the index of it
+                end
+            elseif !empty(subblocks2)
+                
+            end
         else
             new_body = Expr(
                 :if, 
@@ -121,15 +109,5 @@ function reproduce(f1::Expr, f2::Expr)
 
     return new_function_decl
 end
-
-:(nothing * x)
-
-ex1 = copy(ex)
-ex1.args[2].args[1].args[1] = :new_name
-ex1
-
-ex1.args[2].args[2]
-
-ex
 
 dump(ex)
