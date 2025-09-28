@@ -2,24 +2,6 @@ struct Candidate
     AST::Expr
 end # probably needs to store the signature, variable types and the history
 
-# user defined operations and functions allowed
-
-# genetic programming + stochastic optimisation like simulated annealing type shit for it to be more constrained but also efficient (different algorithms for search etc)
-
-# minimal steps that don't change the result that much so if we add a loop it needs and then maybe track the beneficial changes for each cadidate to continue on them and change the direction sometimes (so like let the candidates have history that we can orient to)
-
-# automatic debugging and save the last error in addition to the history so that we could fix the error deliberately
-
-# solving 3 types: competitive (RL), function approximation, learning from a dataset
-
-# builtin initial candidate population generators like a bunch of ifs from data points or smth
-
-# later: translate to python and C++ and also make it possible for the objective to be defined there (tutorials on it)
-
-# 1) solve sign function; 2) solve a board game; 3) solve something in physics
-
-# ADVERTISE IT A LOT AND MAYBE WRITE A PAPER
-
 ALLOWED_OPERATIONS = []
 ALLOWED_COMBINATIONS = []
 
