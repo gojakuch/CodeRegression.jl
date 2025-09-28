@@ -93,5 +93,8 @@ function reproduce(f1::Expr, f2::Expr)
 end
 
 dump(f1)
-dump(Expr(:(x)))
-generate_BinOp()
+dump(get_args(f1))
+generate_BinOp(get_args(f1))
+
+
+generate_regression(f1)

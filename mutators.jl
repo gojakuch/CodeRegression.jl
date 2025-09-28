@@ -1,5 +1,5 @@
 function generate_regression(f::Expr)
-    all_exprs = Expr[]
+    all_exprs = Set()
     
     for i in 1:100
         r = rand()
@@ -15,8 +15,9 @@ function derive_new_expr(all_exprs::Array{Expr}, r)::Expr
 
 end
 
-function generate_BinOp(all_exprs::Vector{Expr}, ConstProb = 0.5, BinProb = 0.5)::Expr
+function generate_BinOp(all_exprs::Set{Expr}, ConstProb = 0.5, BinProb = 0.5)::Expr
     r = rand()
+
     CurrProb = ConstProb
     if r < CurrProb
         return find_random_expr(all_exprs)
