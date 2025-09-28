@@ -6,7 +6,7 @@ ALLOWED_OPERATIONS = []
 ALLOWED_COMBINATIONS = []
 
 include("utils.jl")
-
+include("mutators.jl")
 f1 = quote
     function (x)
         if x > 0
@@ -92,4 +92,6 @@ function reproduce(f1::Expr, f2::Expr)
     return new_function_decl
 end
 
-dump(ex)
+dump(f1)
+dump(Expr(:(x)))
+generate_BinOp()

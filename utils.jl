@@ -21,3 +21,8 @@ function get_args(f::Expr)
     check_expr_type(f, :function)
     get_signature(f1).args[(1+Int(get_signature(f1).head == :call)):end]
 end
+
+function find_random_expr(arr::Array{Expr})::Expr
+    candidates = filter(x -> !(x.head == :if), arr)
+    return :rand(candidates)
+end
