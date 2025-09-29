@@ -92,9 +92,12 @@ function reproduce(f1::Expr, f2::Expr)
     return new_function_decl
 end
 
-dump(f1)
-dump(get_args(f1))
-generate_BinOp(get_args(f1))
+# dump(f1)
+# dump(get_args(f1))
+# generate_BinOp(get_args(f1))
 
-
+# dump(Expr(:quote, :(:y+:y)))
+get_args(f1)
 generate_regression(f1)
+# generate_return
+# generate_return(get_args(f1))

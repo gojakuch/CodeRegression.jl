@@ -1,3 +1,5 @@
+include("utils.jl")
+
 function check_expr_type(e::Expr, t::Symbol)
     if e.head != t
         error("expected expression of type :" * string(t) * " but :" * string(e.head) * " was given")
@@ -17,10 +19,11 @@ end
 """
     returns the list of arguments of a function declaration
 """
-function get_args(f::Expr)
+function get_args(f::Expr)::Set{Any}
     check_expr_type(f, :function)
     sig = get_signature(f)
     args_part = sig.args[(1 + Int(sig.head == :call)):end]
+    # dump(args_part)
     Set(Expr(:quote, arg) for arg in args_part)
 end
 
