@@ -4,11 +4,17 @@ function check_expr_type(e::Expr, t::Symbol)
     end
 end
 
+"""
+    returns the body of a function declaration
+"""
 function get_body(f::Expr) 
     check_expr_type(f, :function)
     f.args[2]
 end
 
+"""
+    returns the signature of a function declaration
+"""
 function get_signature(f::Expr) 
     check_expr_type(f, :function)
     f.args[1]
@@ -19,5 +25,6 @@ end
 """
 function get_args(f::Expr)
     check_expr_type(f, :function)
-    get_signature(f1).args[(1+Int(get_signature(f1).head == :call)):end]
+    s = f.args[1]
+    s.args[(1+Int(s.head == :call)):end]
 end
