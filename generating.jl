@@ -3,7 +3,7 @@ include("utils.jl")
 function generate_regression(f::Expr)
     all_exprs = get_args(f)
 
-    for i in 1:5
+    for i in 1:10
         r = rand()
         derive_new_expr!(all_exprs, r)
     end
@@ -12,7 +12,7 @@ function generate_regression(f::Expr)
 end
 
 function derive_new_expr!(all_exprs::Vector, r)
-    if(r < 0.1)
+    if(r < 0.5)
         push!(all_exprs, generate_bin_op(all_exprs))
     elseif r < 0.95
         push!(all_exprs, generate_return(all_exprs))
