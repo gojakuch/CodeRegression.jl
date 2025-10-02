@@ -38,3 +38,9 @@ end
 f2 = f2.args[2]
 
 reproduce(f1, f2)
+reproduce(f1, f2)
+reproduce(f1, f2)
+
+include("mutating.jl")
+
+generate_regression(f1)
