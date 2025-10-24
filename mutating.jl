@@ -1,97 +1,119 @@
 include("generating.jl")
 
-function mutate(f::Expr)::Expr
-    # FIXME: this is a prototype!!! this should NOT go any further than the proof of concept
-    # TODO: I think we need to replace this with a modifying visitor that finds what to change recursively and that has modular system (meaning the user can turn on and off some possible changes or supply custom ones)
+struct FunctionContext
+    exprs::Vector
+    fdecl::Expr
+end
 
+FunctionContext() = FunctionContext([], :(1+undefined))
+
+function mutate_function!(f::Expr, ::FunctionContext)
     check_expr_type(f, :function)
+    fc::FunctionContext = FunctionContext(generate_regression(f, 1), f)
+    mutate!(get_body(f), fc)
+end
 
-    new_f = deepcopy(f)
-    exprs = generate_regression(f, 1)
-
-    function insertexpr!(arr)
-        r2 = rand()
-        ex = :(nothing)
-        if r2 < 0.2
-            ex = generate_assignment(exprs, new_f)
-        else
-            ex = generate_if(exprs)
-        end
-
-        if length(arr) > 1
-            insert!(arr, rand(1:(length(arr)-1)), ex)
-        else
-            insert!(arr, 1, ex)
-        end
-    end
-
+function insertexpr!(arr, fc::FunctionContext)
     r = rand()
-    if r < 0.4
-        # just add smth before the return (random line)
-        insertexpr!(get_body(new_f).args)
-    elseif r < 0.75
-        # modify something (again, we'll need to do this recursively, it's dumb not to)
-        # do we need to modify the return in the end?
-
-        inds = filter(i -> (typeof(get_body(new_f).args[i]) == Expr), 1:(length(get_body(new_f).args)-1))
-        if isempty(inds)
-            insertexpr!(get_body(new_f).args)
-            return new_f
-        end
-        ind = rand(inds)
-        ex_i = get_body(new_f).args[ind]
-
-        if ex_i.head == :if 
-            # choose if we modify the body or cond
-            # recursion here later
-            r2 = rand()
-            if r2 < 1/3
-                # modify cond
-                ex_i.args[1] = rand(filter(x -> !(typeof(x)==Expr && (x.head == :if || x.head == :return)), exprs))
-            else
-                # insert to the block
-                i = 2 + (length(ex_i.args) > 2 && rand() > 0.5) # decide if we append to the if or to the else
-                if typeof(ex_i.args[i]) != Expr
-                    ex_i.args[i] = Expr(:block, ex_i.args[i])
-                end
-                insertexpr!(ex_i.args[i].args)
-                # r2 = rand()
-                # ex = :(nothing)
-                # if r2 < 0.5
-                #     ex = generate_assignment(exprs, new_f)
-                # else
-                #     ex = generate_if(exprs)
-                # end
-
-                # insert!(ex_i.args[i].args, rand(1:(length(ex_i.args[i].args)-1)), ex)
-            end
-        elseif ex_i.head == :(=)
-            # choose the side
-            r2 = 1
-            if length(get_args(f)) > 1 # check if there are other variables to assign to
-                r2 = rand()
-            end
-            if r2 < 0.3
-                # lhs
-                ex_i.args[1] = rand(get_args(f))
-            else
-                # TODO: separate recursion for the rhs. potential SR.jl integration here (optional)
-                var = ex_i.args[1]
-                ex_i = generate_assignment(exprs, new_f)
-                ex_i.args[1] = var
-                get_body(new_f).args[ind] = ex_i
-            end
-        end
+    ex = :(nothing)
+    if r < 0.2
+        ex = generate_assignment(fc.exprs, fc.fdecl)
     else
-        # remove something
-        inds = filter(i -> (typeof(get_body(new_f).args[i]) != LineNumberNode), 1:(length(get_body(new_f).args)-1))
-        if isempty(inds)
-            insertexpr!(get_body(new_f).args)
-            return new_f
-        end
-        ind = rand(inds)
-        deleteat!(get_body(new_f).args, ind)
+        ex = generate_if(fc.exprs)
     end
 
-    return new_f
+    if length(arr) > 1
+        insert!(arr, rand(1:(length(arr)-1)), ex)
+    else
+        insert!(arr, 1, ex)
+    end
+end
+
+function mutate_block!(body::Expr, fc::FunctionContext)
+    # just add smth before the return (random line)
+    r = rand()
+    # body_args = get_body(new_f).args
+    if r < 0.4
+        insertexpr!(body.args, fc)
+        return
+    end
+
+    # filter indices
+    inds = filter(i -> (typeof(body.args[i]) == Expr), 1:(length(body.args)-1))
+
+    if isempty(inds)
+        insertexpr!(body.args, fc)
+        return
+    end
+
+    ind = rand(inds)
+    # remove something
+    if r < 0.65
+        deleteat!(body.args, ind)
+        return
+    end
+
+    # modify something (again, we'll need to do this recursively, it's dumb not to)
+    # do we need to modify the return in the end?
+    mutate!(body.args[ind], fc)
+end
+
+function mutate_if!(if_expr::Expr, fc::FunctionContext)
+    # choose if we modify the body or cond
+    # recursion here later
+    r = rand()
+    if r < 1/3
+        # modify cond
+        if_expr.args[1] = rand(filter(x -> !(typeof(x)==Expr && (x.head == :if || x.head == :return)), fc.exprs))
+    else
+        # insert to the block
+        i = 2 + (length(if_expr.args) > 2 && rand() > 0.5) # decide if we append to the if or to the else
+        if typeof(if_expr.args[i]) != Expr
+            if_expr.args[i] = Expr(:block, if_expr.args[i])
+        end
+        insertexpr!(if_expr.args[i].args, fc)
+        # r = rand()
+        # ex = :(nothing)
+        # if r < 0.5
+        #     ex = generate_assignment(exprs, new_f)
+        # else
+        #     ex = generate_if(exprs)
+        # end
+
+        # insert!(ex_i.args[i].args, rand(1:(length(ex_i.args[i].args)-1)), ex)
+    end
+end
+
+function mutate_assign!(assign_expr::Expr, fc::FunctionContext)
+    # choose the side
+    r = 1
+    if length(get_args(f)) > 1 # check if there are other variables to assign to
+        r = rand()
+    end
+    if r < 0.3
+        # lhs
+        assign_expr.args[1] = rand(get_args(f))
+    else
+        # TODO: separate recursion for the rhs. potential SR.jl integration here (optional)
+        var = assign_expr.args[1]
+        assign_expr = generate_assignment(fc.exprs, rand(get_args(fc.fdecl)))
+        assign_expr.args[1] = var
+        body.args[ind] = assign_expr
+    end
+end
+
+function mutate!(e::Expr, fc::FunctionContext)
+    dispatch = Dict(
+        :function => mutate_function!,
+        :block => mutate_block!,
+        :if => mutate_if!,
+        :(=) => mutate_assign!
+    )
+    dispatch[e.head](e, fc)
+end
+
+function mutate(e::Expr)::Expr
+    new_e = deepcopy(e)
+    mutate!(new_e, FunctionContext())
+    return new_e
 end
