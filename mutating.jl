@@ -64,7 +64,12 @@ function mutate_if!(if_expr::Expr, fc::FunctionContext)
     r = rand()
     if r < 1/3
         # modify cond
-        if_expr.args[1] = rand(filter(x -> !(typeof(x)==Expr && (x.head == :if || x.head == :return)), fc.exprs))
+        conds = filter(x -> (typeof(x)==Expr && (x.head == :call)), fc.exprs)
+        if !isempty(conds)
+            if_expr.args[1] = rand(conds)
+        else
+            if_expr.args[1] = Expr(:call, :(!), if_expr.args[1])
+        end
     else
         # insert to the block
         i = 2 + (length(if_expr.args) > 2 && rand() > 0.5) # decide if we append to the if or to the else
