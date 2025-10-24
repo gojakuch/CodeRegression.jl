@@ -87,19 +87,24 @@ end
 function mutate_assign!(assign_expr::Expr, fc::FunctionContext)
     # choose the side
     r = 1
-    if length(get_args(f)) > 1 # check if there are other variables to assign to
+    if length(get_args(fc.fdecl)) > 1 # check if there are other variables to assign to
         r = rand()
     end
     if r < 0.3
         # lhs
-        assign_expr.args[1] = rand(get_args(f))
+        assign_expr.args[1] = rand(get_args(fc.fdecl))
     else
         # TODO: separate recursion for the rhs. potential SR.jl integration here (optional)
-        var = assign_expr.args[1]
-        assign_expr = generate_assignment(fc.exprs, rand(get_args(fc.fdecl)))
-        assign_expr.args[1] = var
-        body.args[ind] = assign_expr
+        # var = assign_expr.args[1]
+        # assign_expr = generate_assignment(fc.exprs, rand(get_args(fc.fdecl)))
+        # assign_expr.args[1] = var
+        # body.args[ind] = assign_expr
+        assign_expr.args[2] = rand(fc.exprs)
     end
+end
+
+function mutate_return!(r::Expr, fc::FunctionContext)
+    r.args[1] = rand(fc.exprs)
 end
 
 function mutate!(e::Expr, fc::FunctionContext)
@@ -107,13 +112,14 @@ function mutate!(e::Expr, fc::FunctionContext)
         :function => mutate_function!,
         :block => mutate_block!,
         :if => mutate_if!,
-        :(=) => mutate_assign!
+        :(=) => mutate_assign!,
+        :return => mutate_return!
     )
     dispatch[e.head](e, fc)
 end
 
-function mutate(e::Expr)::Expr
-    new_e = deepcopy(e)
-    mutate!(new_e, FunctionContext())
-    return new_e
+function mutate(f::Expr)::Expr
+    new_f = deepcopy(f)
+    mutate!(new_f, FunctionContext())
+    return new_f
 end
