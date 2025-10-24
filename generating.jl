@@ -84,7 +84,7 @@ end
 
 function generate_if(all_exprs::Vector)
     # TODO: we should accept 2 different arrays: for conds and for bodies generated separately if we want to continue using this approach. filtering is inefficient. 
-    candidates_cond = filter(x -> !(typeof(x)==Expr && (x.head == :if || x.head == :return)), all_exprs) # TODO remove typeof
+    candidates_cond = filter(x -> (typeof(x)==Expr && (x.head == :call)), all_exprs) # TODO remove typeof
     candidates_body = filter(x -> !(typeof(x)==Expr && x.head == :if), all_exprs) # TODO remove typeof
     if isempty(candidates_body)
         return :(nothing)
