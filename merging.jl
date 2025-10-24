@@ -38,7 +38,7 @@ function reproduce(f1::Expr, f2::Expr)::Expr
             elseif h == :if 
                 f = deepcopy(block)
                 i = 2 + (length(f.args) > 2 && rand() > 0.5) # decide if we append to the if or to the else
-                f.args[i] = Expr(:block, f.args[i].args..., ex)
+                f.args[i] = (typeof(f.args[i]) == Expr) ? Expr(:block, f.args[i].args..., ex) : Expr(:block, f.args[i], ex)
                 return f
             end
             throw("append_expr_to_block failed inside reproduce")

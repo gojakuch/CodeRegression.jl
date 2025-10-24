@@ -44,3 +44,7 @@ reproduce(f1, f2)
 include("mutating.jl")
 
 generate_regression(f1)
+
+mutate(f1)
+
+f1
