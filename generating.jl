@@ -30,12 +30,12 @@ function derive_new_expr!(all_exprs::Vector, f, r)
     end
 end
 
-function generate_assignment(all_exprs::Vector, f::Expr)
+function generate_assignment(all_exprs::Vector, var)
     # TODO: we should accept 2 different arrays: for conds and for bodies generated separately if we want to continue using this approach. filtering is inefficient. 
     candidates = filter(x -> !(typeof(x)==Expr && (x.head == :if || x.head == :return)), all_exprs) # TODO remove typeof
     Expr(
         :(=),
-        rand(get_args(f)),
+        var,
         rand(candidates)
     )
 end
