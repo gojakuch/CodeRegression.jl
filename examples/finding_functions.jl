@@ -40,7 +40,7 @@ init_f = :(function (x)
 candidates = Pair{Expr, Float32}[Pair(init_f, NaN)];
 max_size = 50;
 trim_size = 20;
-iters = 3;
+iters = 2;
 reproducing_pairs = 5;
 
 for it in 1:iters
@@ -71,4 +71,4 @@ for it in 1:iters
     end
 end
 
-candidates[1]
+println(candidates[1])
