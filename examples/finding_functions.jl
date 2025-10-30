@@ -1,6 +1,6 @@
 using Random
-include("../merging.jl")
-include("../mutating.jl")
+include("../core/merging.jl")
+include("../core/mutating.jl")
 
 target_f = sign
 
