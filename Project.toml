@@ -2,3 +2,9 @@ name = "CodeRegression"
 uuid = "4026b7d9-44d7-41de-a615-5bc1e8575706"
 authors = ["Atell Krasnopolski <delta_atell@protonmail.com>"]
 version = "0.1.0"
+
+[deps]
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+
+[compat]
+Random = "1.11.0"
