@@ -1,6 +1,5 @@
 using Random
-include("../core/merging.jl");
-include("../core/mutating.jl");
+using CodeRegression
 
 target_f = sign
 
@@ -27,7 +26,11 @@ function objective!(candidates::Vector{Pair{Expr, Float64}}, pairs_and_functions
     push!(points, 0)
 
     for (i, f) in pairs_and_functions
-        candidates[i] = Pair{Expr, Float64}(candidates[i][1], sum(abs.(target_f.(points) .- f.(points))) / (N+1)) # MAE
+        try 
+            candidates[i] = Pair{Expr, Float64}(candidates[i][1], sum(abs.(target_f.(points) .- f.(points))) / (N+1)) # MAE
+        catch _
+            candidates[i] = Pair{Expr, Float64}(candidates[i][1], Inf)
+        end
     end
 end
 

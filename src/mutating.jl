@@ -1,5 +1,3 @@
-include("generating.jl")
-
 struct FunctionContext # TODO: rename this struct
     exprs::Dict{DataType, Vector} # list of expressions that have value (for every type). no statements like if, for, or assignments allowed.
     arg_types::NamedTuple
