@@ -7,19 +7,14 @@ struct FunctionContext # TODO: rename this struct
     fdecl::Expr
 end
 
-FunctionContext() = FunctionContext(Dict{DataType, Vector}(), NamedTuple(), Any, :(1+undefined))
-function FunctionContext(_fdecl, gen_depth::Integer) 
+# FunctionContext() = FunctionContext(Dict{DataType, Vector}(), NamedTuple(), Any, :(1+undefined))
+function FunctionContext(_fdecl, return_type::DataType, gen_depth::Integer)
     argtypes = get_arg_types(_fdecl)
-    rtype = get_return_type(_fdecl)
-
-    FunctionContext(generate_exprs(argtypes, rtype, gen_depth), argtypes, rtype, _fdecl)
+    FunctionContext(generate_exprs(argtypes, return_type, gen_depth), argtypes, return_type, _fdecl)
 end
 
 function mutate_function!(f::Expr, ::FunctionContext)
-    check_expr_type(f, :function)
-
-    fc = FunctionContext(f, 1) # TODO: this depth in the generate_exprs call should be a parameter
-    mutate!(get_body(f), fc)
+    throw("tried to modify a nested function decl. nested functions are not allowed")
 end
 
 function insertstmt!(arr, fc::FunctionContext)
@@ -101,7 +96,7 @@ function mutate_return!(r::Expr, fc::FunctionContext)
 end
 
 function mutate_call!(c::Expr, fc::FunctionContext)
-    @warn "cannot mutate calls for now" # TODO: implement this
+    @warn "cannot mutate calls yet" # TODO: implement this
 end
 
 function mutate!(e::Expr, fc::FunctionContext)
@@ -118,8 +113,14 @@ function mutate!(e::Expr, fc::FunctionContext)
     end
 end
 
-function mutate(f::Expr)::Expr # maybe accept function context here as well
+"""
+    mutates a function declaration and returns the new one.
+    
+    the only mutate wraper the user should call. only accepts function declarations as f.
+"""
+function mutate(f::Expr, return_type::DataType, expr_gen_depth::Int=1)::Expr
+    check_expr_type(f, :function)
     new_f = deepcopy(f)
-    mutate!(new_f, FunctionContext())
+    mutate!(get_body(new_f), FunctionContext(new_f, return_type, expr_gen_depth))
     return new_f
 end
