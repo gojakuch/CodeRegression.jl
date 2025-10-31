@@ -1,8 +1,6 @@
 include("utils.jl")
 
 function generate_exprs(arg_types::NamedTuple, return_type::DataType, iters=3)::Dict{DataType, Vector}
-    check_expr_type(f, :function)
-
     all_exprs = Dict{DataType, Vector}( # ALL OF THESE LISTS MUST BE NON-EMPTY
         Bool => Any[:(true), :(false)], 
         # Integer => [:0, :1], # TODO: we might need a special unsigned type here for sizes and counters, right?
@@ -46,7 +44,6 @@ function generate_op!(all_exprs::Dict{DataType, Vector}, all_ops::Dict{Symbol, T
 end
 
 function generate_stmt(all_exprs::Dict{DataType, Vector}, arg_types::NamedTuple, return_type::DataType)
-    check_expr_type(f, :function)
     r = rand()
 
     if(r < 0.5)
