@@ -39,9 +39,9 @@ return_type = Float64;
 candidates = Pair{Expr, Float64}[Pair(init_f, NaN)];
 max_size = 50;
 trim_size = 10;
-iters = 1;
+iters = 5;
 reproducing_pairs = 4;
-gen_depth = 1;
+gen_depth = 3;
 
 for it in 1:iters
     # mutate
