@@ -1,97 +1,98 @@
 include("utils.jl")
 
-# TODO: generate statements, LHS, and RHS expression lists separately. manage these lists properly so that this helps to achieve the optimum
-
-function generate_regression(f::Expr, iters=10)
+function generate_exprs(arg_types::NamedTuple, return_type::DataType, iters=3)::Dict{DataType, Vector}
     check_expr_type(f, :function)
 
-    all_exprs = get_args(f)
-    # TODO: values!!
-    push!(all_exprs, :0)
-    push!(all_exprs, :1)
-    push!(all_exprs, :(-1)) # FIXME: kinda cheating for now. should be generated from 1 naturally via the RHS mutator
+    all_exprs = Dict{DataType, Vector}( # ALL OF THESE LISTS MUST BE NON-EMPTY
+        Bool => Any[:(true), :(false)], 
+        # Integer => [:0, :1], # TODO: we might need a special unsigned type here for sizes and counters, right?
+        Number => Any[:0, :1, :(-1)] # -1 is kinda cheating for now
+    )
+    for arg in eachindex(arg_types)
+        gt = general_type(arg_types[arg])
+        if !haskey(all_exprs, gt)
+            all_exprs[gt] = []
+        end
+        push!(all_exprs[gt], arg)
+    end
+    rt = general_type(return_type) # should we generalise the return type or not?
+    if !haskey(all_exprs, rt)
+        all_exprs[rt] = []
+    end
+    if haskey(all_exprs, Any)
+        @warn "Any detected. Please specify the parameter and return types in the function signature to avoid issues"
+    end
+
+    # TODO: this should be a parameter of some sort, so that the user can adjust it
+    all_ops = Dict{Symbol, Tuple}(
+        :(<) => ((Number, Number), Bool), # FIXME: only works for numbers but how do we also do the same thing for integers and all the possible type variations later on? 
+        :(==) => ((Number, Number), Bool) # FIXME: again, we should somehow signal all the types that we can take as an arg
+    )
 
     for i in 1:iters
-        derive_new_expr!(all_exprs, f, rand())
+        generate_op!(all_exprs, all_ops)
     end
 
     all_exprs
 end
 
-function derive_new_expr!(all_exprs::Vector, f, r)
+function generate_op!(all_exprs::Dict{DataType, Vector}, all_ops::Dict{Symbol, Tuple})
+    (op, signature_tuple) = rand(all_ops) # should we sample the operation space or the select the type at random?
+
+    args = [rand(all_exprs[general_type(type)]) for type in signature_tuple[1]] # maybe general_type is not needed here (surely is for now)
+
+    ex = Expr(:call, op, args...)
+    push!(all_exprs[general_type(signature_tuple[2])], ex)
+end
+
+function generate_stmt(all_exprs::Dict{DataType, Vector}, arg_types::NamedTuple, return_type::DataType)
+    check_expr_type(f, :function)
+    r = rand()
+
     if(r < 0.5)
-        push!(all_exprs, generate_assignment(all_exprs, f))
-    elseif(r < 0.75)
-        push!(all_exprs, generate_bin_op(all_exprs))
-    elseif r < 0.95
-        push!(all_exprs, generate_return(all_exprs))
-    elseif r < 1 
-        push!(all_exprs, generate_if(all_exprs))
+        return generate_assignment(all_exprs, arg_types)
+    elseif r < 0.75
+        return generate_return(all_exprs, return_type)
+    else
+        return generate_if(all_exprs, arg_types, return_type)
     end
 end
 
-function generate_assignment(all_exprs::Vector, var)
-    # TODO: we should accept 2 different arrays: for conds and for bodies generated separately if we want to continue using this approach. filtering is inefficient. 
-    candidates = filter(x -> !(typeof(x)==Expr && (x.head == :if || x.head == :return)), all_exprs) # TODO remove typeof
+function generate_assignment(all_exprs::Dict{DataType, Vector}, arg_types::NamedTuple)
+    if isempty(arg_types)
+        # TODO: create new variable here once we have support for that
+        return :(nothing)
+    end
+    (var, type) = rand(arg_types)
+
     Expr(
         :(=),
         var,
-        rand(candidates)
+        rand(all_exprs[general_type(type)])
     )
 end
 
-function generate_bin_op(all_exprs::Vector, ConstProb = 0.5, BinProb = 0.5)
-    r = rand()
-
-    CurrProb = ConstProb
-    if r < CurrProb
-        candidates = filter(x -> !(typeof(x)==Expr && (x.head == :if || x.head == :return || x.head == :(=))), all_exprs) # TODO remove typeofs in all those filters. actually, remove the filters entirely, only accept arrays with what's acceptable
-        if isempty(candidates)
-            return :(nothing)
-        end
-        return rand(candidates)
-    end
-
-    CurrProb += BinProb
-    if r < CurrProb
-        r_norm = (r - CurrProb) / BinProb + 1
-        if r_norm < 1/3
-            ex = :(0 > 0)
-        elseif r_norm < 2/3
-            ex = :(0 == 0)
-        else
-            ex = :(0 < 0)
-        end
-        ConstProb, BinProb = ConstProb + BinProb / 2, BinProb / 2
-        left = generate_bin_op(all_exprs, ConstProb, BinProb)
-        ex.args[2] = left #(typeof(left) == Expr) ? left.args[end] : left # TODO remove typeof
-        right = generate_bin_op(all_exprs, ConstProb, BinProb)
-        ex.args[3] = right #(typeof(right) == Expr) ? right.args[end] : right # TODO remove typeof
-    end
-
-    return ex
-end
-
-function generate_return(all_exprs::Vector)
-    # TODO: we should accept 2 different arrays: for conds and for bodies generated separately if we want to continue using this approach. filtering is inefficient. 
-    candidates = filter(x -> !(typeof(x)==Expr && (x.head == :if || x.head == :return || x.head == :(=))), all_exprs) # TODO remove typeof
+function generate_return(all_exprs::Dict{DataType, Vector}, return_type::DataType)
+    candidates = all_exprs[general_type(return_type)]
     if isempty(candidates)
+        # FIXME: this situation needs to be avoided, these lists should never be empty in the first place. figure out how to ensure that the return type contains something as well
+        @warn "generate_return returned nothing, as no value of the return type has been found"
         return :(nothing)
     end
-    c = rand(candidates)
-    return Expr(:return, ((typeof(c) == Expr) ? c.args[1] : c)) # TODO remove typeof
+    return Expr(:return, rand(candidates))
 end
 
-function generate_if(all_exprs::Vector)
-    # TODO: we should accept 2 different arrays: for conds and for bodies generated separately if we want to continue using this approach. filtering is inefficient. 
-    candidates_cond = filter(x -> (typeof(x)==Expr && (x.head == :call)), all_exprs) # TODO remove typeof
-    candidates_body = filter(x -> !(typeof(x)==Expr && x.head == :if), all_exprs) # TODO remove typeof
-    if isempty(candidates_body)
-        return :(nothing)
+function generate_block(all_exprs::Dict{DataType, Vector}, arg_types::NamedTuple, return_type::DataType)
+    stmts = [generate_assignment(all_exprs, arg_types)]
+    if rand() < 0.5
+        push!(stmts, generate_return(all_exprs, return_type))
     end
-    cond = :(true)
-    if !isempty(candidates_cond)
-        cond = rand(candidates_cond)
-    end
-    return Expr(:if, cond, rand(candidates_body), rand(candidates_body))
+    return Expr(:block, stmts...)
+end
+
+function generate_if(all_exprs::Dict{DataType, Vector}, arg_types::NamedTuple, return_type::DataType)
+    candidates_cond = all_exprs[Bool]
+    cond = rand(candidates_cond)
+    blocks = [generate_block(all_exprs, arg_types, return_type) for _ in 1:rand(1:2)]
+    return Expr(:if, cond, blocks...)
 end

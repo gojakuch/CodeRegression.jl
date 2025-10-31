@@ -10,18 +10,21 @@ function objective_precompile(candidates::Vector{Pair{Expr, Float32}})
     for i in eachindex(candidates)
         def, l = candidates[i]
         if isnan(l)
+            dump(def)
+            print(def)
+
             f = x -> Inf
-            try # TODO: REMOVE THAT AFTER FIXING THE ISSUES
+            # try # TODO: REMOVE THAT AFTER FIXING THE ISSUES
                 f = eval(def)
-            catch er
-            end
+            # catch er
+            # end
             precompile(f, (Float32,))
             pairs_and_functions[i] = function (x)
-                try # TODO: REMOVE THAT AFTER FIXING THE ISSUES
+                # try # TODO: REMOVE THAT AFTER FIXING THE ISSUES
                     return f(x)
-                catch er
-                    return Inf
-                end
+                # catch er
+                #     return Inf
+                # end
             end
         end
     end
@@ -38,13 +41,13 @@ function objective!(candidates::Vector{Pair{Expr, Float32}}, pairs_and_functions
     end
 end
 
-init_f = :(function (x)
+init_f = :(function (x::Float32)
         return 1
     end);
 candidates = Pair{Expr, Float32}[Pair(init_f, NaN)];
 max_size = 50;
 trim_size = 10;
-iters = 10;
+iters = 1;
 reproducing_pairs = 4;
 
 for it in 1:iters
