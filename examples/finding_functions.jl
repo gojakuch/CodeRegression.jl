@@ -1,6 +1,6 @@
 using Random
-include("../core/merging.jl")
-include("../core/mutating.jl")
+include("../core/merging.jl");
+include("../core/mutating.jl");
 
 target_f = sign
 
@@ -11,7 +11,7 @@ function objective_precompile(candidates::Vector{Pair{Expr, Float64}}, par_types
         def, l = candidates[i]
         if isnan(l)
             f = x -> Inf
-            f = eval(def)e
+            f = eval(def)
             precompile(f, par_types)
             pairs_and_functions[i] = function (x)
                 return f(x)

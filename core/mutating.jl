@@ -18,7 +18,6 @@ function mutate_function!(f::Expr, ::FunctionContext)
 end
 
 function insertstmt!(arr, fc::FunctionContext)
-    r = rand()
     stmt = generate_stmt(fc.exprs, fc.arg_types, fc.return_type)
 
     if length(arr) > 1
