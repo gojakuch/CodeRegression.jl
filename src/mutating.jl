@@ -49,7 +49,6 @@ function mutate_block!(body::Expr, fc::FunctionContext)
         return
     end
 
-    # modify something (again, we'll need to do this recursively, it's dumb not to)
     # do we need to modify the return in the end?
     mutate!(body.args[ind], fc)
 end

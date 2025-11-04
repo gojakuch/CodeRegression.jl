@@ -1,3 +1,5 @@
+using Random
+
 function reproduce(f1::Expr, f2::Expr)::Expr
     body1 = get_body(f1)
     (typeof(body1.args[end]) != Expr || body1.args[end].head != :return) && (body1.args[end] = Expr(:return, body1.args[end])) # add return to the last value
@@ -63,7 +65,7 @@ function reproduce(f1::Expr, f2::Expr)::Expr
                 body1.args[1:end-1]..., # FIXME: this can sometimes trim a line from a block in recursion. should only ignore the return statements
                 body2.args...
             )
-        elseif r < 3/4
+        elseif r < 2/4
             # smarter combination
             # TODO: make it smarter and maybe more efficient (other reproduce combination algorithms)
             subblocks1 = find_subblocks(body1)
@@ -97,7 +99,7 @@ function reproduce(f1::Expr, f2::Expr)::Expr
         else
             new_body = Expr(
                 :if, 
-                Expr(:call, rand([<, >]), arg, 0), 
+                Expr(:call, rand([:<, :>]), arg, 0), 
                 body1, body2)
         end
         return new_body
