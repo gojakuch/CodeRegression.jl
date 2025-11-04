@@ -9,7 +9,6 @@ function objective_precompile(candidates::Vector{Pair{Expr, Float64}}, par_types
     for i in eachindex(candidates)
         def, l = candidates[i]
         if isnan(l)
-            f = x -> Inf
             f = eval(def)
             precompile(f, par_types)
             pairs_and_functions[i] = function (x)
@@ -43,9 +42,10 @@ candidates = Pair{Expr, Float64}[Pair(init_f, NaN)];
 max_size = 50;
 trim_size = 10;
 iters = 5;
-reproducing_pairs = 4;
-gen_depth = 3;
+reproducing_pairs = 7;
+gen_depth = 4;
 
+Random.seed!(1)
 for it in 1:iters
     # mutate
     mutpair(p) = Pair{Expr, Float64}(mutate(p[1], return_type, gen_depth), NaN64)
@@ -55,11 +55,15 @@ for it in 1:iters
     # reproduce
     # TODO: maybe figure out a good distribution for how to pick the reproducing pairs, for the best to be ahead??
     children = Pair{Expr, Float64}[]
-    for _ in 1:reproducing_pairs
-        shuffle!(candidates)
-        parents = candidates[1:2]
+    for rp in 1:reproducing_pairs
+        # shuffle!(candidates)
+        if rp+1 > length(candidates)
+            break
+        end
+        parent1 = candidates[rp]
+        parent2 = rand(candidates[(rp+1):end])
         try # FIXME: remove and check for errors??
-        push!(children, (reproduce(parents[1][1], parents[2][1]) => NaN64)) # possible duplicates
+        push!(children, (reproduce(parent1[1], parent2[1]) => NaN64))
         catch
         end
     end
