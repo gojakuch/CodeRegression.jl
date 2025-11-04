@@ -44,13 +44,12 @@ end
 function generate_stmt(all_exprs::Dict{DataType, Vector}, arg_types::NamedTuple, return_type::DataType)
     r = rand()
 
-    if(r < 0.5)
+    if(r < 0.25)
         return generate_assignment(all_exprs, arg_types)
-    elseif r < 0.75
+    elseif r < 0.5
         return generate_return(all_exprs, return_type)
-    else
-        return generate_if(all_exprs, arg_types, return_type)
     end
+    return generate_if(all_exprs, arg_types, return_type)
 end
 
 function generate_assignment(all_exprs::Dict{DataType, Vector}, arg_types::NamedTuple)
@@ -86,7 +85,7 @@ function generate_block(all_exprs::Dict{DataType, Vector}, arg_types::NamedTuple
 end
 
 function generate_if(all_exprs::Dict{DataType, Vector}, arg_types::NamedTuple, return_type::DataType)
-    candidates_cond = all_exprs[Bool]
+    candidates_cond = all_exprs[Bool][3:end]
     cond = rand(candidates_cond)
     blocks = [generate_block(all_exprs, arg_types, return_type) for _ in 1:rand(1:2)]
     return Expr(:if, cond, blocks...)
