@@ -2,9 +2,7 @@ using Random
 
 function reproduce(f1::Expr, f2::Expr)::Expr
     body1 = get_body(f1)
-    (typeof(body1.args[end]) != Expr || body1.args[end].head != :return) && (body1.args[end] = Expr(:return, body1.args[end])) # add return to the last value
     body2 = get_body(f2)
-    (typeof(body2.args[end]) != Expr || body2.args[end].head != :return) && (body2.args[end] = Expr(:return, body2.args[end])) # add return to the last value
 
     function random_body_merge(body1, body2, arg)::Expr
         check_expr_type(body1, :block)
