@@ -4,7 +4,7 @@ using CodeRegression
 include("finding_functions.jl");
 
 @testset "(finding functions, fixed seeds)" begin # code taken from examples/finding_functions.jl
-    for seed in (1, 3, 999)
+    for seed in (2, 20, 200)
         Random.seed!(seed)
         for test_param_set in [
                 Dict(:function => sign, :iters => 5),
@@ -42,7 +42,6 @@ include("finding_functions.jl");
                     end
                 end
                 candidates = cat(candidates, children; dims=1)
-
                 # compute objectives and sort
                 pf = objective_precompile(candidates, par_types)
                 objective!(target_f, candidates, pf)
