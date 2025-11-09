@@ -1,7 +1,7 @@
 using Random, Test
 using CodeRegression
 
-include("finding_functions.jl");
+include("finding_functions_objectives.jl");
 
 @testset "(finding functions, fixed seeds)" begin # code taken from examples/finding_functions.jl
     for seed in (2, 20, 200)
@@ -22,7 +22,7 @@ include("finding_functions.jl");
             max_size = 50
             trim_size = 10
             
-            reproducing_pairs = 4
+            reproducing_pairs = 7
             gen_depth = 4
 
             res = false
@@ -54,6 +54,10 @@ include("finding_functions.jl");
                     res = true
                     break
                 end
+            end
+
+            if !res
+                println("Test failed: ", test_param_set[:function], " with seed ", seed, ".\nBest candidate:\n", candidates[1])
             end
 
             @test res
