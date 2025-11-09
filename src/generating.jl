@@ -1,19 +1,20 @@
-function generate_exprs(arg_types::NamedTuple, return_type::DataType, iters=3)::Dict{DataType, Vector}
-    all_exprs = Dict{DataType, Vector}( # ALL OF THESE LISTS MUST BE NON-EMPTY
-        Bool => Any[:(true), :(false)], 
-        # Integer => [:0, :1], # TODO: we might need a special unsigned type here for sizes and counters, right?
-        Number => Any[:0, :1, :(-1)] # -1 is kinda cheating for now
+function generate_exprs(arg_types::NamedTuple, return_type::DataType, iters=3)::Dict{DataType, ConstsAndExprs}
+    all_exprs = Dict{DataType, ConstsAndExprs}( # ALL OF THESE LISTS MUST BE NON-EMPTY
+        Bool => ConstsAndExprs{Bool}(Bool[true, false], Any[]),
+        Number => ConstsAndExprs{Float64}(Float64[0, 1, -1], Any[]) # -1 is kinda cheating for now
     )
     for arg in eachindex(arg_types)
         gt = general_type(arg_types[arg])
         if !haskey(all_exprs, gt)
-            all_exprs[gt] = []
+            all_exprs[gt] = ConstsAndExprs{Any}([], [])
         end
-        push!(all_exprs[gt], arg)
+        push!(all_exprs[gt].exprs, arg)
     end
     rt = general_type(return_type) # should we generalise the return type or not?
     if !haskey(all_exprs, rt)
-        all_exprs[rt] = []
+        all_exprs[rt] = ConstsAndExprs{Any}([], [])
+        @warn "generate_return returned nothing, as no value of the return type has been found"
+        # FIXME: this must not be empty!
     end
     if haskey(all_exprs, Any)
         @warn "Any detected. Please specify the parameter and return types in the function signature to avoid issues"
@@ -21,8 +22,8 @@ function generate_exprs(arg_types::NamedTuple, return_type::DataType, iters=3)::
 
     # TODO: this should be a parameter of some sort, so that the user can adjust it
     all_ops = Dict{Symbol, Tuple}(
-        :(<) => ((Number, Number), Bool), # FIXME: only works for numbers but how do we also do the same thing for integers and all the possible type variations later on? 
-        :(==) => ((Number, Number), Bool) # FIXME: again, we should somehow signal all the types that we can take as an arg
+        :(<) => (((type=Number, can_be_const=false), (type=Number, can_be_const=true)), Bool), # FIXME: only works for numbers but how do we also do the same thing for integers and all the possible type variations later on? 
+        :(==) => (((type=Number, can_be_const=false), (type=Number, can_be_const=true)), Bool) # FIXME: again, we should somehow signal all the types that we can take as an arg
     )
 
     for i in 1:iters
@@ -32,16 +33,31 @@ function generate_exprs(arg_types::NamedTuple, return_type::DataType, iters=3)::
     all_exprs
 end
 
-function generate_op!(all_exprs::Dict{DataType, Vector}, all_ops::Dict{Symbol, Tuple})
-    (op, signature_tuple) = rand(all_ops) # should we sample the operation space or the select the type at random?
+function generate_op!(all_exprs::Dict{DataType, ConstsAndExprs}, all_ops::Dict{Symbol, Tuple})
+    (op, signature_tuple) = rand(all_ops) # TODO: we should sample the type space, not the operation one
 
-    args = [rand(all_exprs[general_type(type)]) for type in signature_tuple[1]] # maybe general_type is not needed here (surely is for now)
+    are_all_args_const = true
+    args = []
+    for param_info in signature_tuple[1]
+        if !param_info.can_be_const
+            are_all_args_const = false
+            push!(args, rand(all_exprs[general_type(param_info.type)].exprs))
+        else
+            (ex, is_const) = rand(all_exprs[general_type(param_info.type)])
+            push!(args, ex)
+            are_all_args_const = are_all_args_const && is_const
+        end
+    end
 
     ex = Expr(:call, op, args...)
-    push!(all_exprs[general_type(signature_tuple[2])], ex)
+    if are_all_args_const
+        push!(all_exprs[general_type(signature_tuple[2])].consts, ex)
+    else
+        push!(all_exprs[general_type(signature_tuple[2])].exprs, ex)
+    end
 end
 
-function generate_stmt(all_exprs::Dict{DataType, Vector}, arg_types::NamedTuple, return_type::DataType)
+function generate_stmt(all_exprs::Dict{DataType, ConstsAndExprs}, arg_types::NamedTuple, return_type::DataType)
     r = rand()
 
     if(r < 0.25)
@@ -52,7 +68,7 @@ function generate_stmt(all_exprs::Dict{DataType, Vector}, arg_types::NamedTuple,
     return generate_if(all_exprs, arg_types, return_type)
 end
 
-function generate_assignment(all_exprs::Dict{DataType, Vector}, arg_types::NamedTuple)
+function generate_assignment(all_exprs::Dict{DataType, ConstsAndExprs}, arg_types::NamedTuple)
     if isempty(arg_types)
         # TODO: create new variable here once we have support for that
         return :(nothing)
@@ -62,21 +78,21 @@ function generate_assignment(all_exprs::Dict{DataType, Vector}, arg_types::Named
     Expr(
         :(=),
         var,
-        rand(all_exprs[general_type(type)])
+        rand(all_exprs[general_type(type)])[1]
     )
 end
 
-function generate_return(all_exprs::Dict{DataType, Vector}, return_type::DataType)
+function generate_return(all_exprs::Dict{DataType, ConstsAndExprs}, return_type::DataType)
     candidates = all_exprs[general_type(return_type)]
     if isempty(candidates)
         # FIXME: this situation needs to be avoided, these lists should never be empty in the first place. figure out how to ensure that the return type contains something as well
         @warn "generate_return returned nothing, as no value of the return type has been found"
         return :(nothing)
     end
-    return Expr(:return, rand(candidates))
+    return Expr(:return, rand(candidates)[1])
 end
 
-function generate_block(all_exprs::Dict{DataType, Vector}, arg_types::NamedTuple, return_type::DataType)
+function generate_block(all_exprs::Dict{DataType, ConstsAndExprs}, arg_types::NamedTuple, return_type::DataType)
     stmts = [generate_assignment(all_exprs, arg_types)]
     if rand() < 0.5
         push!(stmts, generate_return(all_exprs, return_type))
@@ -84,8 +100,8 @@ function generate_block(all_exprs::Dict{DataType, Vector}, arg_types::NamedTuple
     return Expr(:block, stmts...)
 end
 
-function generate_if(all_exprs::Dict{DataType, Vector}, arg_types::NamedTuple, return_type::DataType)
-    candidates_cond = all_exprs[Bool][3:end]
+function generate_if(all_exprs::Dict{DataType, ConstsAndExprs}, arg_types::NamedTuple, return_type::DataType)
+    candidates_cond = all_exprs[Bool].exprs
     cond = rand(candidates_cond)
     blocks = [generate_block(all_exprs, arg_types, return_type) for _ in 1:rand(1:2)]
     return Expr(:if, cond, blocks...)

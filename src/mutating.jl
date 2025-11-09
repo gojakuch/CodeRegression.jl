@@ -1,10 +1,3 @@
-struct FunctionContext # TODO: rename this struct
-    exprs::Dict{DataType, Vector} # list of expressions that have value (for every type). no statements like if, for, or assignments allowed.
-    arg_types::NamedTuple
-    return_type::DataType
-    fdecl::Expr
-end
-
 # FunctionContext() = FunctionContext(Dict{DataType, Vector}(), NamedTuple(), Any, :(1+undefined))
 function FunctionContext(_fdecl, return_type::DataType, gen_depth::Integer)
     argtypes = get_arg_types(_fdecl)
@@ -16,7 +9,7 @@ function mutate_function!(f::Expr, ::FunctionContext)
 end
 
 function insertstmt!(arr, fc::FunctionContext)
-    stmt = generate_stmt(fc.exprs, fc.arg_types, fc.return_type)
+    stmt = generate_stmt(fc.all_exprs, fc.arg_types, fc.return_type)
 
     if length(arr) > 1
         insert!(arr, rand(1:(length(arr)-1)), stmt)
@@ -34,7 +27,7 @@ function mutate_block!(body::Expr, fc::FunctionContext)
         return
     end
 
-    # filter indices
+    # filter indices # FIXME: remove this filter
     inds = filter(i -> (typeof(body.args[i]) == Expr), 1:(length(body.args)-1))
 
     if isempty(inds)
@@ -59,7 +52,7 @@ function mutate_if!(if_expr::Expr, fc::FunctionContext)
     r = rand()
     if r < 1/3
         # modify cond
-        conds = fc.exprs[Bool]
+        conds = fc.all_exprs[Bool].exprs
         if rand() < 0.5
             if_expr.args[1] = rand(conds)
         else
@@ -84,11 +77,11 @@ function mutate_assign!(assign_expr::Expr, fc::FunctionContext)
     # body.args[ind] = assign_expr
 
     var = assign_expr.args[1]
-    assign_expr.args[2] = rand(fc.exprs[general_type(fc.arg_types[var])])
+    assign_expr.args[2] = rand(fc.all_exprs[general_type(fc.arg_types[var])])
 end
 
 function mutate_return!(r::Expr, fc::FunctionContext)
-    r.args[1] = rand(fc.exprs[general_type(fc.return_type)])
+    r.args[1] = rand(fc.all_exprs[general_type(fc.return_type)])[1]
 end
 
 function mutate_call!(c::Expr, fc::FunctionContext)

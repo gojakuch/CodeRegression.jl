@@ -1,5 +1,8 @@
 module CodeRegression
 
+using Random
+
+include("types.jl");
 include("utils.jl");
 include("merging.jl");
 include("generating.jl");

@@ -91,5 +91,13 @@ function Base.rand(t::NamedTuple) # we sample from named tuples
     return (i, getfield(t, i))
 end
 
+function Base.rand(ce::ConstsAndExprs)
+    idx = rand(1:(length(ce.consts) + length(ce.exprs)))
+    if idx <= length(ce.consts)
+        return (ce.consts[idx], true)
+    end
+    return (ce.exprs[idx-length(ce.consts)], false)
+end
+
 # TODO: move helper functions from the `reproduce` here
 # TODO: split this file
