@@ -5,7 +5,7 @@
     end
 """
 struct ConstsAndExprs{T}
-    consts::Vector{T}
+    consts::Vector{Union{T, Expr}}
     exprs::Vector{Any}
 end
 

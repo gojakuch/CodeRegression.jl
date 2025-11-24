@@ -53,7 +53,7 @@ function mutate_if!(if_expr::Expr, fc::FunctionContext)
     if r < 1/3
         # modify cond
         conds = fc.all_exprs[Bool].exprs
-        if rand() < 0.5
+        if !isempty(conds) && rand() < 0.5 # conds should not be empty if we do everything correctly
             if_expr.args[1] = rand(conds)
         else
             if_expr.args[1] = Expr(:call, :(!), if_expr.args[1])
