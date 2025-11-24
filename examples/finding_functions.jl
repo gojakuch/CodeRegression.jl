@@ -1,7 +1,7 @@
 using Random
 using CodeRegression
 
-target_f = sign
+target_f = abs
 
 function objective_precompile(candidates::Vector{Pair{Expr, Float64}}, par_types::Tuple)
     pairs_and_functions = Dict{Int, Function}()

@@ -8,7 +8,8 @@ include("finding_functions_objectives.jl");
         Random.seed!(seed)
         for test_param_set in [
                 Dict(:function => sign, :iters => 5),
-                Dict(:function => identity, :iters => 5)
+                Dict(:function => identity, :iters => 5),
+                Dict(:function => abs, :iters => 15)
             ]
 
             init_f = :(function (x::Float64)

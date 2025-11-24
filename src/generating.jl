@@ -1,7 +1,7 @@
 function generate_exprs(arg_types::NamedTuple, return_type::DataType, iters=3)::Dict{DataType, ConstsAndExprs}
     all_exprs = Dict{DataType, ConstsAndExprs}( # ALL OF THESE LISTS MUST BE NON-EMPTY
         Bool => ConstsAndExprs{Bool}(Bool[true, false], Any[]),
-        Number => ConstsAndExprs{Float64}(Float64[0, 1, -1], Any[]) # -1 is kinda cheating for now
+        Number => ConstsAndExprs{Float64}(Union{Float64, Expr}[0., 1.], Any[])
     )
     for arg in eachindex(arg_types)
         gt = general_type(arg_types[arg])
@@ -23,7 +23,8 @@ function generate_exprs(arg_types::NamedTuple, return_type::DataType, iters=3)::
     # TODO: this should be a parameter of some sort, so that the user can adjust it
     all_ops = Dict{Symbol, Tuple}(
         :(<) => (((type=Number, can_be_const=false), (type=Number, can_be_const=true)), Bool), # FIXME: only works for numbers but how do we also do the same thing for integers and all the possible type variations later on? 
-        :(==) => (((type=Number, can_be_const=false), (type=Number, can_be_const=true)), Bool) # FIXME: again, we should somehow signal all the types that we can take as an arg
+        :(==) => (((type=Number, can_be_const=false), (type=Number, can_be_const=true)), Bool), # FIXME: again, we should somehow signal all the types that we can take as an arg
+        :(-) => (((type=Number, can_be_const=true),), Number)
     )
 
     for i in 1:iters
