@@ -9,7 +9,7 @@ include("finding_functions_objectives.jl");
         for test_param_set in [
                 Dict(:function => sign, :iters => 5),
                 Dict(:function => identity, :iters => 5),
-                Dict(:function => abs, :iters => 15)
+                Dict(:function => abs, :iters => 10)
             ]
 
             init_f = :(function (x::Float64)
@@ -22,9 +22,8 @@ include("finding_functions_objectives.jl");
             candidates = Pair{Expr, Float64}[Pair(init_f, NaN)]
             max_size = 50
             trim_size = 10
-            
-            reproducing_pairs = 7
-            gen_depth = 4
+            reproducing_pairs = 8
+            gen_depth = 3
 
             res = false
             for it in 1:iters
@@ -33,16 +32,23 @@ include("finding_functions_objectives.jl");
                 mutants = mutpair.(candidates)
                 candidates = cat(candidates, mutants; dims=1)
 
+                # reproduce
+                # TODO: maybe figure out a good distribution for how to pick the reproducing pairs, for the best to be ahead??
                 children = Pair{Expr, Float64}[]
-                for _ in 1:reproducing_pairs
-                    shuffle!(candidates)
-                    parents = candidates[1:2]
+                for rp in 1:reproducing_pairs
+                    # shuffle!(candidates)
+                    if rp+1 > length(candidates)
+                        break
+                    end
+                    parent1 = candidates[rp]
+                    parent2 = rand(candidates[(rp+1):end])
                     try # FIXME: remove and check for errors??
-                    push!(children, (reproduce(parents[1][1], parents[2][1]) => NaN64)) # possible duplicates
+                    push!(children, (reproduce(parent1[1], parent2[1]) => NaN64))
                     catch
                     end
                 end
                 candidates = cat(candidates, children; dims=1)
+
                 # compute objectives and sort
                 pf = objective_precompile(candidates, par_types)
                 objective!(target_f, candidates, pf)
