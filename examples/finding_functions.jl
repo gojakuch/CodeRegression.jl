@@ -42,10 +42,10 @@ candidates = Pair{Expr, Float64}[Pair(init_f, NaN)];
 max_size = 50;
 trim_size = 10;
 iters = 5;
-reproducing_pairs = 7;
-gen_depth = 4;
+reproducing_pairs = 8;
+gen_depth = 3;
 
-Random.seed!(1)
+Random.seed!(2)
 for it in 1:iters
     # mutate
     mutpair(p) = Pair{Expr, Float64}(mutate(p[1], return_type, gen_depth), NaN64)

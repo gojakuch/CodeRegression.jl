@@ -20,11 +20,24 @@ function generate_exprs(arg_types::NamedTuple, return_type::DataType, iters=3)::
         @warn "Any detected. Please specify the parameter and return types in the function signature to avoid issues"
     end
 
-    # TODO: this should be a parameter of some sort, so that the user can adjust it
-    all_ops = Dict{Symbol, Tuple}(
-        :(<) => (((type=Number, can_be_const=false), (type=Number, can_be_const=true)), Bool), # FIXME: only works for numbers but how do we also do the same thing for integers and all the possible type variations later on? 
-        :(==) => (((type=Number, can_be_const=false), (type=Number, can_be_const=true)), Bool), # FIXME: again, we should somehow signal all the types that we can take as an arg
-        :(-) => (((type=Number, can_be_const=true),), Number)
+    # TODO: this should be a parameter of some sort, so that the user can adjust it. also maybe simply the form in which it is requierd from the user and use this type of thing as the internal represenation only
+    all_ops = Dict{DataType, Vector{AllowedOperationDescription}}(
+        Bool => [
+            AllowedOperationDescription(
+                :(<), 
+                NamedTuple[(type=Number, can_be_const=false), (type=Number, can_be_const=true)] # FIXME: only works for numbers but how do we also do the same thing for integers and all the possible type variations later on?
+            ),
+            AllowedOperationDescription(
+                :(==), 
+                NamedTuple[(type=Number, can_be_const=false), (type=Number, can_be_const=true)] # FIXME: again, we should somehow signal all the types that we can take as an arg
+            ),
+        ],
+        Number => [
+            AllowedOperationDescription(
+                :(-), 
+                NamedTuple[(type=Number, can_be_const=true)]
+            ),
+        ]
     )
 
     for i in 1:iters
@@ -34,27 +47,33 @@ function generate_exprs(arg_types::NamedTuple, return_type::DataType, iters=3)::
     all_exprs
 end
 
-function generate_op!(all_exprs::Dict{DataType, ConstsAndExprs}, all_ops::Dict{Symbol, Tuple})
-    (op, signature_tuple) = rand(all_ops) # TODO: we should sample the type space, not the operation one
+function generate_op!(all_exprs::Dict{DataType, ConstsAndExprs}, all_ops::Dict)
+    for (rtype, ops) in all_ops # generate some expressions for each available type
+        isempty(ops) && continue # skip empty
+        
+        op_descr = rand(ops)
+        op = op_descr.callee
+        params = op_descr.params
 
-    are_all_args_const = true
-    args = []
-    for param_info in signature_tuple[1]
-        if !param_info.can_be_const
-            are_all_args_const = false
-            push!(args, rand(all_exprs[general_type(param_info.type)].exprs))
-        else
-            (ex, is_const) = rand(all_exprs[general_type(param_info.type)])
-            push!(args, ex)
-            are_all_args_const = are_all_args_const && is_const
+        are_all_args_const = true
+        args = []
+        for param_info in params
+            if !param_info.can_be_const
+                are_all_args_const = false
+                push!(args, rand(all_exprs[general_type(param_info.type)].exprs))
+            else
+                (ex, is_const) = rand(all_exprs[general_type(param_info.type)])
+                push!(args, ex)
+                are_all_args_const = are_all_args_const && is_const
+            end
         end
-    end
 
-    ex = Expr(:call, op, args...)
-    if are_all_args_const
-        push!(all_exprs[general_type(signature_tuple[2])].consts, ex)
-    else
-        push!(all_exprs[general_type(signature_tuple[2])].exprs, ex)
+        ex = Expr(:call, op, args...)
+        if are_all_args_const
+            push!(all_exprs[general_type(rtype)].consts, ex)
+        else
+            push!(all_exprs[general_type(rtype)].exprs, ex)
+        end
     end
 end
 
