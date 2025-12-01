@@ -1,18 +1,18 @@
 function generate_exprs(arg_types::NamedTuple, return_type::DataType, iters=3)::Dict{DataType, ConstsAndExprs}
     all_exprs = Dict{DataType, ConstsAndExprs}( # ALL OF THESE LISTS MUST BE NON-EMPTY
-        Bool => ConstsAndExprs{Bool}(Bool[true, false], Any[]),
-        Number => ConstsAndExprs{Float64}(Union{Float64, Expr}[0., 1.], Any[])
+        Bool => ConstsAndExprs(make_const_wrap.([true, false]), Any[]),
+        Number => ConstsAndExprs(make_const_wrap.([0., 1.]), Any[])
     )
     for arg in eachindex(arg_types)
         gt = general_type(arg_types[arg])
         if !haskey(all_exprs, gt)
-            all_exprs[gt] = ConstsAndExprs{Any}([], [])
+            all_exprs[gt] = ConstsAndExprs(Expr[], [])
         end
         push!(all_exprs[gt].exprs, arg)
     end
     rt = general_type(return_type) # should we generalise the return type or not?
     if !haskey(all_exprs, rt)
-        all_exprs[rt] = ConstsAndExprs{Any}([], [])
+        all_exprs[rt] = ConstsAndExprs(Expr[], [])
         @warn "generate_return returned nothing, as no value of the return type has been found"
         # FIXME: this must not be empty!
     end

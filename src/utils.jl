@@ -99,5 +99,21 @@ function Base.rand(ce::ConstsAndExprs)
     return (ce.exprs[idx-length(ce.consts)], false)
 end
 
+"""
+    _cw_(x) = x 
+
+    used to wrap literals.
+"""
+_cw_(x) = x
+
+"""
+    x must be smth representable as a literal!
+
+    returns Expr(:call, _cw_, x)
+"""
+function make_const_wrap(x)::Expr 
+    Expr(:call, _cw_, x)
+end
+
 # TODO: move helper functions from the `reproduce` here
 # TODO: split this file
