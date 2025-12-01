@@ -1,11 +1,11 @@
 """
-    struct ConstsAndExprs{T}
-        consts::Vector{T}
+    struct ConstsAndExprs
+        consts::Vector{Expr}
         exprs::Vector{Any}
     end
 """
-struct ConstsAndExprs{T}
-    consts::Vector{Union{T, Expr}}
+struct ConstsAndExprs
+    consts::Vector{Expr}
     exprs::Vector{Any}
 end
 
