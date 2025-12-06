@@ -13,14 +13,24 @@ Base.isempty(ce::ConstsAndExprs) = isempty(ce.consts) && isempty(ce.exprs)
 
 
 """
+    CandidateFunction wraps a function declaration expression. 
+"""
+struct CandidateFunction
+    fdecl::Expr
+    return_type::DataType # TODO: this should be a part of a singleton `ProblemSetup` or `ProblemConfig`
+    arg_types::NamedTuple # TODO: this should be a part of a singleton `ProblemSetup` or `ProblemConfig`
+    literal_wraps::Vector{Expr}
+end
+
+
+"""
     TODO
 """
-struct FunctionContext # TODO: rename this struct
+struct MutationContext
     all_exprs::Dict{DataType, ConstsAndExprs} # list of expressions that have value (for every type). no statements like if, for, or assignments allowed.
-    arg_types::NamedTuple
-    return_type::DataType
-    fdecl::Expr
+    f::CandidateFunction
 end
+
 
 """
     TODO

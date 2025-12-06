@@ -4,6 +4,7 @@ using Random
 
 include("types.jl");
 include("utils.jl");
+include("constructors.jl");
 include("merging.jl");
 include("generating.jl");
 include("mutating.jl");
