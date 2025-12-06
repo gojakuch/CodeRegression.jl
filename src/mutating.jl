@@ -1,3 +1,5 @@
+# this file describes the mutation visitor based on the general visitor template in "visitor_template.jl"
+
 function mutate_function!(f::Expr, ::MutationContext)
     throw("tried to modify a nested function decl. nested functions are not allowed")
 end
