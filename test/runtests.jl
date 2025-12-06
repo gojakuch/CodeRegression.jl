@@ -3,6 +3,7 @@ using CodeRegression
 
 include("finding_functions_objectives.jl");
 
+
 @testset "(finding functions, fixed seeds)" begin # code taken from examples/finding_functions.jl
     for seed in (2, 20, 200)
         Random.seed!(seed)
@@ -71,3 +72,20 @@ include("finding_functions_objectives.jl");
         end
     end
 end
+
+
+@testset "(testing `find_literals`)" begin
+    consts = CodeRegression.make_const_wrap.([1, 2, 3.0])
+    f = Expr(:function, Expr(:call, :f, :x, :y), 
+        Expr(:block, 
+            Expr(:if, Expr(:call, >, :x, consts[1]),
+                Expr(:(=), :x, consts[2]),
+                Expr(:(=), :y, consts[3]),
+            )
+        )
+    )
+    @test (Set(consts) == Set(CodeRegression.find_literals(f)))
+end
+
+
+# TODO: add a copy validity test (so that we know that both merge and mutate don't accidentally change the original functions)

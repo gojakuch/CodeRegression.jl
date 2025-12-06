@@ -1,8 +1,8 @@
 using Random
 
 function reproduce(f1::Expr, f2::Expr)::Expr
-    body1 = get_body(f1)
-    body2 = get_body(f2)
+    body1 = deepcopy(get_body(f1))
+    body2 = deepcopy(get_body(f2))
 
     function random_body_merge(body1, body2, arg)::Expr
         check_expr_type(body1, :block)
@@ -34,7 +34,7 @@ function reproduce(f1::Expr, f2::Expr)::Expr
             if h == :block
                  return Expr(:block, block.args..., ex)
             elseif h == :if 
-                f = deepcopy(block)
+                f = block # deepcopy(block) # we now call deepcopy all the time
                 i = 2 + (length(f.args) > 2 && rand() > 0.5) # decide if we append to the if or to the else
                 f.args[i] = (typeof(f.args[i]) == Expr) ? Expr(:block, f.args[i].args..., ex) : Expr(:block, f.args[i], ex)
                 return f
@@ -48,7 +48,7 @@ function reproduce(f1::Expr, f2::Expr)::Expr
             if h == :block
                  return random_body_merge(block1, block2, arg)
             elseif h == :if 
-                f = deepcopy(block1)
+                f = block1 # deepcopy(block1) # we now call deepcopy all the time
                 # TODO: add condition merging and smarter if merges generally. check if the conditions are similar, etc.
                 i = 2 + (length(f.args) > 2 && length(block2.args) > 2 && rand() > 0.5) # decide if we merge the if or to the else
                 f.args[i] = random_body_merge(block1.args[i], block2.args[i], arg)
@@ -97,7 +97,7 @@ function reproduce(f1::Expr, f2::Expr)::Expr
         else
             new_body = Expr(
                 :if, 
-                Expr(:call, rand([:<, :>]), arg, 0), 
+                Expr(:call, rand([:<, :>]), arg, make_const_wrap(0)), 
                 body1, body2)
         end
         return new_body
