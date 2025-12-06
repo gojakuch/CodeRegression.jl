@@ -73,7 +73,7 @@ function mutate_assign!(assign_expr::Expr, mc::MutationContext)
     # body.args[ind] = assign_expr
 
     var = assign_expr.args[1]
-    assign_expr.args[2] = rand(mc.all_exprs[general_type(mc.f.arg_types[var])])
+    assign_expr.args[2] = rand(mc.all_exprs[general_type(mc.f.arg_types[var])])[1]
 end
 
 function mutate_return!(r::Expr, mc::MutationContext)
