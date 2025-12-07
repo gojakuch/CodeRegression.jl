@@ -17,9 +17,9 @@ Base.isempty(ce::ConstsAndExprs) = isempty(ce.consts) && isempty(ce.exprs)
 """
 struct CandidateFunction
     fdecl::Expr
-    return_type::DataType # TODO: this should be a part of a singleton `ProblemSetup` or `ProblemConfig`
-    arg_types::NamedTuple # TODO: this should be a part of a singleton `ProblemSetup` or `ProblemConfig`
-    literal_wraps::Vector{Expr}
+    return_type::DataType # TODO: move this to the templates? or together with arg_types to a singleton class?
+    arg_types::NamedTuple
+    literal_wraps::Vector{Expr} # TODO: remove this maybe? or can we optimise its computation? don't compute this with every mutation/merge
 end
 
 
