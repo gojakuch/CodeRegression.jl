@@ -109,10 +109,10 @@ _cw_(x) = x
 """
     x must be smth representable as a literal!
 
-    returns Expr(:call, _cw_, x)
+    returns Expr(:call, :_cw_, x)
 """
 function make_const_wrap(x)::Expr 
-    Expr(:call, _cw_, x)
+    Expr(:call, :_cw_, x)
 end
 
 # TODO: move helper functions from the `reproduce` here

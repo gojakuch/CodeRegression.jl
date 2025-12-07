@@ -25,7 +25,7 @@ function find_literals_return!(r::Expr, literals::Vector{Expr})
 end
 
 function find_literals_call!(c::Expr, literals::Vector{Expr})
-    if c.args[1] === _cw_
+    if c.args[1] == :_cw_
         push!(literals, c)
         return
     elseif length(c.args) < 2
