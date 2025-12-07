@@ -10,6 +10,6 @@ include("merging.jl");
 include("generating.jl");
 include("mutating.jl");
 
-export mutate, reproduce, CandidateFunction
+export mutate, reproduce, _cw_, CandidateFunction
 
 end # module CodeRegression
