@@ -3,89 +3,91 @@ using CodeRegression
 
 include("finding_functions_objectives.jl");
 
+@testset "tests" begin
 
-@testset "(finding functions, fixed seeds)" begin # code taken from examples/finding_functions.jl
-    for seed in (2, 20, 200)
-        Random.seed!(seed)
+    @testset "finding functions, fixed seeds" begin # code taken from examples/finding_functions.jl
         for test_param_set in [
-                Dict(:function => sign, :iters => 5),
-                Dict(:function => identity, :iters => 5),
-                Dict(:function => abs, :iters => 10)
-            ]
+                    (target_f = sign, iters = 15, seeds = (20, 200, 20000)),
+                    (target_f = identity, iters = 15, seeds = (2, 20, 200)),
+                    (target_f = abs, iters = 15, seeds = (1, 2,)),
+                ]
+            target_f = test_param_set.target_f
+            iters = test_param_set.iters
 
-            init_f = :(function (x::Float64)
-                    return 1
-                end)
-            target_f = test_param_set[:function]
-            iters = test_param_set[:iters]
-            par_types = (Float64,)
-            return_type = Float64
-            candidates = Pair{Expr, Float64}[Pair(init_f, NaN)]
+            init_f = CandidateFunction(:(function (x::Float64)
+                        return 1
+                    end), #=return_type=#Float64)
+            par_types = Tuple(init_f.arg_types)
+            return_type = init_f.return_type
+
             max_size = 50
             trim_size = 10
             reproducing_pairs = 8
             gen_depth = 3
+            for seed in test_param_set.seeds
+                candidates = Pair{CandidateFunction, Float64}[Pair(init_f, NaN)];
 
-            res = false
-            for it in 1:iters
-                # mutate
-                mutpair(p) = Pair{Expr, Float64}(mutate(p[1], return_type, gen_depth), NaN64)
-                mutants = mutpair.(candidates)
-                candidates = cat(candidates, mutants; dims=1)
+                res = false
+                Random.seed!(seed)
+                for it in 1:iters
+                    # mutate
+                    mutpair(p) = Pair{CandidateFunction, Float64}(mutate(p[1], gen_depth), NaN64)
+                    mutants = mutpair.(candidates)
+                    candidates = cat(candidates, mutants; dims=1)
 
-                # reproduce
-                # TODO: maybe figure out a good distribution for how to pick the reproducing pairs, for the best to be ahead??
-                children = Pair{Expr, Float64}[]
-                for rp in 1:reproducing_pairs
-                    # shuffle!(candidates)
-                    if rp+1 > length(candidates)
+                    # reproduce
+                    children = Pair{CandidateFunction, Float64}[]
+                    for rp in 1:reproducing_pairs
+                        # shuffle!(candidates)
+                        if rp+1 > length(candidates)
+                            break
+                        end
+                        parent1 = candidates[rp]
+                        parent2 = rand(candidates[(rp+1):end])
+                        try # FIXME: remove and check for errors??
+                        push!(children, (reproduce(parent1[1], parent2[1]) => NaN64))
+                        catch
+                        end
+                    end
+                    candidates = cat(candidates, children; dims=1)
+
+                    # compute objectives and sort
+                    pf = objective_precompile(candidates, par_types)
+                    objective!(target_f, candidates, pf)
+                    sort!(candidates; lt=(x, y)->(isless(x[2], y[2])))
+                    if length(candidates) > max_size
+                        candidates = candidates[1:trim_size]
+                    end
+
+                    if candidates[1][2] < 0.01
+                        res = true
                         break
                     end
-                    parent1 = candidates[rp]
-                    parent2 = rand(candidates[(rp+1):end])
-                    try # FIXME: remove and check for errors??
-                    push!(children, (reproduce(parent1[1], parent2[1]) => NaN64))
-                    catch
-                    end
-                end
-                candidates = cat(candidates, children; dims=1)
-
-                # compute objectives and sort
-                pf = objective_precompile(candidates, par_types)
-                objective!(target_f, candidates, pf)
-                sort!(candidates; lt=(x, y)->(isless(x[2], y[2])))
-                if length(candidates) > max_size
-                    candidates = candidates[1:trim_size]
                 end
 
-                if candidates[1][2] < 0.01
-                    res = true
-                    break
+                if !res
+                    println("Test failed: ", test_param_set.target_f, " with seed ", seed, ".\nBest candidate:\n", candidates[1][1].fdecl, "\nwith loss: ", candidates[1][2])
                 end
+
+                @test res
             end
-
-            if !res
-                println("Test failed: ", test_param_set[:function], " with seed ", seed, ".\nBest candidate:\n", candidates[1])
-            end
-
-            @test res
         end
     end
-end
 
 
-@testset "(testing `find_literals`)" begin
-    consts = CodeRegression.make_const_wrap.([1, 2, 3.0])
-    f = Expr(:function, Expr(:call, :f, :x, :y), 
-        Expr(:block, 
-            Expr(:if, Expr(:call, >, :x, consts[1]),
-                Expr(:(=), :x, consts[2]),
-                Expr(:(=), :y, consts[3]),
+    @testset "`find_literals` test" begin
+        consts = CodeRegression.make_const_wrap.([1, 2, 3.0])
+        f = Expr(:function, Expr(:call, :f, :x, :y), 
+            Expr(:block, 
+                Expr(:if, Expr(:call, >, :x, consts[1]),
+                    Expr(:(=), :x, consts[2]),
+                    Expr(:(=), :y, consts[3]),
+                )
             )
         )
-    )
-    @test (Set(consts) == Set(CodeRegression.find_literals(f)))
-end
+        @test (Set(consts) == Set(CodeRegression.find_literals(f)))
+    end
 
+end
 
 # TODO: add a copy validity test (so that we know that both merge and mutate don't accidentally change the original functions)
