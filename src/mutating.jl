@@ -1,6 +1,6 @@
 # this file describes the mutation visitor based on the general visitor template in "visitor_template.jl"
 
-function mutate_function!(f::Expr, ::MutationContext)
+function mutate_function!(::Expr, ::MutationContext)
     throw("tried to modify a nested function decl. nested functions are not allowed")
 end
 
@@ -99,13 +99,12 @@ function mutate!(e::Expr, mc::MutationContext)
 end
 
 """
-    mutates a function declaration and returns the new one.
+    mutates a CandidateFunction and returns the new one.
     
-    the only mutate wraper the user should call. only accepts function declarations as f.
+    the only mutate wraper the user should call.
 """
-function mutate(f::Expr, return_type::DataType, expr_gen_depth::Int=1)::Expr
-    check_expr_type(f, :function)
-    new_f = deepcopy(f)
-    mutate!(get_body(new_f), MutationContext(new_f, return_type, expr_gen_depth))
-    return new_f
+function mutate(cf::CandidateFunction, expr_gen_depth::Int=1)::CandidateFunction
+    new_f = deepcopy(cf.fdecl)
+    mutate!(get_body(new_f), MutationContext(new_f, cf.return_type, expr_gen_depth))
+    return CandidateFunction(new_f, cf.return_type)
 end

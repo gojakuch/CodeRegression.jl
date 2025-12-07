@@ -1,8 +1,8 @@
 using Random
 
-function reproduce(f1::Expr, f2::Expr)::Expr
-    body1 = deepcopy(get_body(f1))
-    body2 = deepcopy(get_body(f2))
+function reproduce(cf1::CandidateFunction, cf2::CandidateFunction)::CandidateFunction
+    body1 = deepcopy(get_body(cf1.fdecl))
+    body2 = deepcopy(get_body(cf2.fdecl))
 
     function random_body_merge(body1, body2, arg)::Expr
         check_expr_type(body1, :block)
@@ -114,5 +114,5 @@ function reproduce(f1::Expr, f2::Expr)::Expr
     new_function_decl = copy(f1)
     new_function_decl.args[2] = new_body
 
-    return new_function_decl
+    return CandidateFunction(new_function_decl, cf1.return_type)
 end
