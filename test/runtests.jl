@@ -90,24 +90,69 @@ include("finding_functions_objectives.jl");
 
 
     @testset "literal optimisation (abs)" begin
+        begin
+            cff = CandidateFunction(
+                :(function (x::Float64)
+                    if x > _cw_(1)
+                        return x
+                    end
+                    return -x
+                end), Float64
+            )
+            p = swap_literals_with_params(cff)
+            xs = -2:0.001:2
+            loss = function(f)
+                sum((abs.(xs) - f.(xs)).^2)/100
+            end
+
+            optimize_literals!(p, loss, 100, 0.01)
+
+            f = eval(p.cf.fdecl)
+            @test loss(f) < 9e-4
+        end
+
+        begin
+            cff = CandidateFunction(
+                :(function (x::Float64)
+                    if x > _cw_(-1)
+                        return x
+                    end
+                    return -x
+                end), Float64
+            )
+            p = swap_literals_with_params(cff)
+            xs = -2:0.001:2
+            loss = function(f)
+                sum((abs.(xs) - f.(xs)).^2)/100
+            end
+
+            optimize_literals!(p, loss, 100, 0.01)
+
+            f = eval(p.cf.fdecl)
+            @test loss(f) < 9e-4
+        end
+    end
+
+
+    @testset "literal optimisation (sign)" begin
         cff = CandidateFunction(
             :(function (x::Float64)
-                if x > _cw_(1)
-                    return x
+                if x > _cw_(0.1)
+                    return _cw_(0.9)
                 end
-                return -x
+                return _cw_(-1.2)
             end), Float64
         )
         p = swap_literals_with_params(cff)
-        xs = -2:0.001:2
+        xs = -2:0.01:2
         loss = function(f)
-            sum((abs.(xs) - f.(xs)).^2)/100
+            sum((sign.(xs) - f.(xs)).^2)/100
         end
 
-        optimize_literals!(p, loss, 100, 0.01)
+        optimize_literals!(p, loss, 1000, 0.01)
 
         f = eval(p.cf.fdecl)
-        @test loss(f) < 9e-4
+        @test loss(f) < 0.011
     end
 
 
