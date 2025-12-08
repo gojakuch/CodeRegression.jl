@@ -88,6 +88,31 @@ include("finding_functions_objectives.jl");
         @test (Set(consts) == Set(CodeRegression.find_literals(f)))
     end
 
-end
 
-# TODO: add a copy validity test (so that we know that both merge and mutate don't accidentally change the original functions)
+    @testset "literal optimisation (abs)" begin
+        cff = CandidateFunction(
+            :(function (x::Float64)
+                if x > _cw_(1)
+                    return x
+                end
+                return -x
+            end), Float64
+        )
+        p = swap_literals_with_params(cff)
+        xs = -2:0.001:2
+        loss = function(f)
+            sum((abs.(xs) - f.(xs)).^2)/100
+        end
+
+        optimize_literals!(p, loss, 100, 0.01)
+
+        f = eval(p.cf.fdecl)
+        @test loss(f) < 9e-4
+    end
+
+
+    # TODO: add a copy validity test (so that we know that both merge and mutate don't accidentally change the original functions)
+
+
+    # TODO: add tests that check if the generation is copying the subexpressions to avoid this situation in parametrisation and more (not only with constants)
+end

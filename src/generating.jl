@@ -98,7 +98,7 @@ function generate_assignment(all_exprs::Dict{DataType, ConstsAndExprs}, arg_type
     Expr(
         :(=),
         var,
-        rand(all_exprs[general_type(type)])[1]
+        deepcopy(rand(all_exprs[general_type(type)])[1]) # TODO: when do we need to copy and to deepcopy these generated exprs?? maybe don't use copy when generating `all_exprs` but only use this deepcopy everywhere
     )
 end
 
@@ -109,7 +109,7 @@ function generate_return(all_exprs::Dict{DataType, ConstsAndExprs}, return_type:
         @warn "generate_return returned nothing, as no value of the return type has been found"
         return :(nothing)
     end
-    return Expr(:return, rand(candidates)[1])
+    return Expr(:return, deepcopy(rand(candidates)[1]))
 end
 
 function generate_block(all_exprs::Dict{DataType, ConstsAndExprs}, arg_types::NamedTuple, return_type::DataType)
@@ -122,7 +122,7 @@ end
 
 function generate_if(all_exprs::Dict{DataType, ConstsAndExprs}, arg_types::NamedTuple, return_type::DataType)
     candidates_cond = all_exprs[Bool].exprs
-    cond = rand(candidates_cond)
+    cond = deepcopy(rand(candidates_cond))
     blocks = [generate_block(all_exprs, arg_types, return_type) for _ in 1:rand(1:2)]
     return Expr(:if, cond, blocks...)
 end
