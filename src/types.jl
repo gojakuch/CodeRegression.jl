@@ -19,7 +19,6 @@ struct CandidateFunction
     fdecl::Expr
     return_type::DataType # TODO: move this to the templates? or together with arg_types to a singleton class?
     arg_types::NamedTuple
-    literal_wraps::Vector{Expr} # TODO: remove this maybe? or can we optimise its computation? don't compute this with every mutation/merge
 end
 
 
