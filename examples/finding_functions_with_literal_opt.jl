@@ -3,7 +3,7 @@ using CodeRegression
 
 include("finding_functions_objectives.jl");
 
-target_f = abs
+target_f = (x)->2*sign(x)
 
 init_f = CandidateFunction(:(function (x::Float64)
         return 1
@@ -17,7 +17,7 @@ iters = 5;
 reproducing_pairs = 8;
 gen_depth = 3;
 
-Random.seed!(2)
+Random.seed!(20)
 for it in 1:iters
     # mutate
     mutpair(p) = Pair{CandidateFunction, Float64}(mutate(p[1], gen_depth), NaN64)
@@ -40,6 +40,19 @@ for it in 1:iters
         end
     end
     candidates = cat(candidates, children; dims=1)
+
+    # literal optimisation
+    swap_literals_pair(p) = swap_literals_with_params(p[1])
+    ps = swap_literals_pair.(candidates)
+    xs = -2:0.001:2
+    loss = function(f)
+        sum((target_f.(xs) - f.(xs)).^2)/100
+    end
+
+    for p in ps
+        optimize_literals!(p, loss, 50, 0.01)
+        push!(candidates, Pair(p.cf, NaN64))
+    end
 
     # compute objectives and sort
     pf = objective_precompile(candidates, par_types)
