@@ -1,7 +1,7 @@
 using Random, Test
 using CodeRegression
 
-include("finding_functions_objectives.jl");
+include("../examples/finding_functions_objectives.jl");
 
 @testset "tests" begin
 
@@ -99,6 +99,8 @@ include("finding_functions_objectives.jl");
                     return -x
                 end), Float64
             )
+            cff_backup = deepcopy(cff)
+            
             p = swap_literals_with_params(cff)
             xs = -2:0.001:2
             loss = function(f)
@@ -108,7 +110,9 @@ include("finding_functions_objectives.jl");
             optimize_literals!(p, loss, 100, 0.01)
 
             f = eval(p.cf.fdecl)
-            @test loss(f) < 9e-4
+            @test loss(f) < 9e-4 # check the optimisation
+
+            @test cff_backup == cff # check that we preserve the original CandidateFunction object
         end
 
         begin
