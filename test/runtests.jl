@@ -112,7 +112,10 @@ include("../examples/finding_functions_objectives.jl");
             f = eval(p.cf.fdecl)
             @test loss(f) < 9e-4 # check the optimisation
 
-            @test cff_backup == cff # check that we preserve the original CandidateFunction object
+            cff_backup_f = eval(cff_backup.fdecl)
+            cff_f = eval(cff.fdecl)
+
+            @test cff_backup_f.(xs) == cff_f.(xs) # check that we preserve the original CandidateFunction object
         end
 
         begin

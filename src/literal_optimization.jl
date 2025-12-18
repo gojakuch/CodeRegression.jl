@@ -2,7 +2,7 @@
     CandidateFunction with parametrised literals. Is produced by `swap_literals_with_params` and should only be created from there. 
 """
 mutable struct ParamLiteralCandidateFunction
-    cf::CandidateFunction # original candidate function
+    cf::CandidateFunction # original candidate function (copy) TODO: do we need this to be a copy or just assume that the optimisation is reliable and will always improve the function?
     param_fdecl::Expr # declaration of the function where all the literals are parametres instead
     param_f::Function # = eval(param_fdecl)
     literals::Vector{Expr} # literals from `param_fdecl`, not `cf.fdecl`
@@ -26,7 +26,7 @@ function swap_literals_with_params(cf::CandidateFunction)::ParamLiteralCandidate
         push!(param_decl.args[1].args, param_name)
     end
 
-    ParamLiteralCandidateFunction(cf, param_decl, eval(param_decl), literals, values, new_params)
+    ParamLiteralCandidateFunction(deepcopy(cf), param_decl, eval(param_decl), literals, values, new_params)
 end
 
 """
