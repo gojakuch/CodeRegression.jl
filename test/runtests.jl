@@ -6,6 +6,24 @@ include("../examples/finding_functions_objectives.jl");
 @testset "tests" begin
 
     @testset "finding functions, fixed seeds" begin # code taken from examples/finding_functions.jl
+        allowed_ops = Dict{DataType, Vector{AllowedOperationDescription}}(
+            Bool => [
+                AllowedOperationDescription(
+                    :(<), 
+                    NamedTuple[(type=Number, can_be_const=false), (type=Number, can_be_const=true)]
+                ),
+                AllowedOperationDescription(
+                    :(==), 
+                    NamedTuple[(type=Number, can_be_const=false), (type=Number, can_be_const=true)]
+                ),
+            ],
+            Number => [
+                AllowedOperationDescription(
+                    :(-), 
+                    NamedTuple[(type=Number, can_be_const=true)]
+                ),
+            ]
+        )
         for test_param_set in [
                     (target_f = sign, iters = 15, seeds = (20, 200, 20000)),
                     (target_f = identity, iters = 15, seeds = (2, 20, 200)),
@@ -14,16 +32,20 @@ include("../examples/finding_functions_objectives.jl");
             target_f = test_param_set.target_f
             iters = test_param_set.iters
 
-            init_f = CandidateFunction(:(function (x::Float64)
-                        return 1
-                    end), #=return_type=#Float64)
-            par_types = Tuple(init_f.arg_types)
-            return_type = init_f.return_type
+            algparams, init_f = CodeRegression.init(
+                #=initial_fdecl=# :(function (x::Float64)
+                    return 1
+                end), 
+                #=return_type=#Float64,  
+                #=all_ops=#allowed_ops, 
+                #=expr_gen_depth=#3,
+                #=apply_literal_optim=#false, 
+                #=literal_optim_iters=#0)
+            par_types = Tuple(algparams.f_arg_types)
 
             max_size = 50
             trim_size = 10
             reproducing_pairs = 8
-            gen_depth = 3
             for seed in test_param_set.seeds
                 candidates = Pair{CandidateFunction, Float64}[Pair(init_f, NaN)];
 
@@ -31,7 +53,7 @@ include("../examples/finding_functions_objectives.jl");
                 Random.seed!(seed)
                 for it in 1:iters
                     # mutate
-                    mutpair(p) = Pair{CandidateFunction, Float64}(mutate(p[1], gen_depth), NaN64)
+                    mutpair(p) = Pair{CandidateFunction, Float64}(mutate(p[1]), NaN64)
                     mutants = mutpair.(candidates)
                     candidates = cat(candidates, mutants; dims=1)
 
@@ -91,14 +113,14 @@ include("../examples/finding_functions_objectives.jl");
 
     @testset "literal optimisation (abs)" begin
         begin
-            cff = CandidateFunction(
+            _, cff = CodeRegression.init(
                 :(function (x::Float64)
                     if x > _cw_(1)
                         return x
                     end
                     return -x
-                end), Float64
-            )
+                end),
+            Float64,  Dict{DataType, Vector{AllowedOperationDescription}}(), 0, false, 0)
             cff_backup = deepcopy(cff)
             
             p = swap_literals_with_params(cff)
@@ -119,14 +141,14 @@ include("../examples/finding_functions_objectives.jl");
         end
 
         begin
-            cff = CandidateFunction(
+            _, cff = CodeRegression.init(
                 :(function (x::Float64)
                     if x > _cw_(-1)
                         return x
                     end
                     return -x
-                end), Float64
-            )
+                end), 
+            Float64,  Dict{DataType, Vector{AllowedOperationDescription}}(), 0, false, 0)
             p = swap_literals_with_params(cff)
             xs = -2:0.001:2
             loss = function(f)
@@ -142,14 +164,14 @@ include("../examples/finding_functions_objectives.jl");
 
 
     @testset "literal optimisation (sign)" begin
-        cff = CandidateFunction(
+        _, cff = CodeRegression.init(
             :(function (x::Float64)
                 if x > _cw_(0.1)
                     return _cw_(0.9)
                 end
                 return _cw_(-1.2)
-            end), Float64
-        )
+            end),
+        Float64,  Dict{DataType, Vector{AllowedOperationDescription}}(), 0, false, 0)
         p = swap_literals_with_params(cff)
         xs = -2:0.01:2
         loss = function(f)

@@ -5,7 +5,7 @@ function mutate_function!(::Expr, ::MutationContext)
 end
 
 function insertstmt!(arr, mc::MutationContext)
-    stmt = generate_stmt(mc.all_exprs, mc.f.arg_types, mc.f.return_type)
+    stmt = generate_stmt(mc.all_exprs, mc.f.algparams_ref)
 
     if length(arr) > 1
         insert!(arr, rand(1:(length(arr)-1)), stmt)
@@ -73,11 +73,11 @@ function mutate_assign!(assign_expr::Expr, mc::MutationContext)
     # body.args[ind] = assign_expr
 
     var = assign_expr.args[1]
-    assign_expr.args[2] = rand(mc.all_exprs[general_type(mc.f.arg_types[var])])[1]
+    assign_expr.args[2] = rand(mc.all_exprs[general_type(mc.f.algparams_ref.f_arg_types[var])])[1]
 end
 
 function mutate_return!(r::Expr, mc::MutationContext)
-    r.args[1] = rand(mc.all_exprs[general_type(mc.f.return_type)])[1]
+    r.args[1] = rand(mc.all_exprs[general_type(mc.f.algparams_ref.f_return_type)])[1]
 end
 
 function mutate_call!(c::Expr, mc::MutationContext)
@@ -103,8 +103,9 @@ end
     
     the only mutate wraper the user should call.
 """
-function mutate(cf::CandidateFunction, expr_gen_depth::Int=1)::CandidateFunction
+function mutate(cf::CandidateFunction)::CandidateFunction
     new_f = deepcopy(cf.fdecl)
-    mutate!(get_body(new_f), MutationContext(new_f, cf.return_type, expr_gen_depth))
-    return CandidateFunction(new_f, cf.return_type)
+    new_cf = CandidateFunction(new_f, cf.algparams_ref)
+    mutate!(get_body(new_f), MutationContext(new_cf))
+    return new_cf
 end

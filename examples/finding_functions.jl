@@ -3,24 +3,46 @@ using CodeRegression
 
 include("finding_functions_objectives.jl");
 
-target_f = abs
+target_f = abs # abs, sign, identity; — all work here
 
-init_f = CandidateFunction(:(function (x::Float64)
+allowed_ops = Dict{DataType, Vector{AllowedOperationDescription}}(
+    Bool => [
+        AllowedOperationDescription(
+            :(<), 
+            NamedTuple[(type=Number, can_be_const=false), (type=Number, can_be_const=true)] # FIXME: only works for numbers but how do we also do the same thing for integers and all the possible type variations later on?
+        ),
+        AllowedOperationDescription(
+            :(==), 
+            NamedTuple[(type=Number, can_be_const=false), (type=Number, can_be_const=true)] # FIXME: again, we should somehow signal all the types that we can take as an arg
+        ),
+    ],
+    Number => [
+        AllowedOperationDescription(
+            :(-), 
+            NamedTuple[(type=Number, can_be_const=true)]
+        ),
+    ]
+)
+algparams, init_f = CodeRegression.init(
+    #=initial_fdecl=# :(function (x::Float64)
         return 1
-    end), #=return_type=#Float64);
-par_types = Tuple(init_f.arg_types);
-return_type = init_f.return_type;
+    end), 
+    #=return_type=#Float64,  
+    #=all_ops=#allowed_ops, 
+    #=expr_gen_depth=#3,
+    #=apply_literal_optim=#false, 
+    #=literal_optim_iters=#0);
+par_types = Tuple(algparams.f_arg_types);
 candidates = Pair{CandidateFunction, Float64}[Pair(init_f, NaN)];
 max_size = 50;
 trim_size = 10;
 iters = 5;
 reproducing_pairs = 8;
-gen_depth = 3;
 
 Random.seed!(2)
 for it in 1:iters
     # mutate
-    mutpair(p) = Pair{CandidateFunction, Float64}(mutate(p[1], gen_depth), NaN64)
+    mutpair(p) = Pair{CandidateFunction, Float64}(mutate(p[1]), NaN64)
     mutants = mutpair.(candidates)
     candidates = cat(candidates, mutants; dims=1)
 
