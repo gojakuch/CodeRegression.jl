@@ -3,8 +3,16 @@ using CodeRegression
 
 include("../examples/finding_functions_objectives.jl");
 
-@testset "tests" begin
+# check if we're running in quick mode
+const QUICK_TEST = get(ENV, "QUICK_TEST", "false") == "true"
 
+if QUICK_TEST
+    println("\n\nrunning tests in quick mode! for extensive testing, use:\n`julia> ENV[\"QUICK_TEST\"]=\"false\"`\n")
+else
+    println("\n\nrunning all tests! for quick testing mode, use:\n`julia> ENV[\"QUICK_TEST\"]=\"true\"`\n")
+end
+
+@testset "tests" begin
     @testset "finding functions, fixed seeds" begin # code taken from examples/finding_functions.jl
         allowed_ops = Dict{DataType, Vector{AllowedOperationDescription}}(
             Bool => [
@@ -25,9 +33,9 @@ include("../examples/finding_functions_objectives.jl");
             ]
         )
         for test_param_set in [
-                    (target_f = sign, iters = 15, seeds = (20, 200, 20000)),
-                    (target_f = identity, iters = 15, seeds = (2, 20, 200)),
-                    (target_f = abs, iters = 15, seeds = (1, 2,)),
+                    (target_f = sign, iters = 15, seeds = (QUICK_TEST ? (20,) : (20, 200, 20000))),
+                    (target_f = identity, iters = 15, seeds = (QUICK_TEST ? (2,) : (2, 20, 200))),
+                    (target_f = abs, iters = 15, seeds = (QUICK_TEST ? (1,) : (1, 2,))),
                 ]
             target_f = test_param_set.target_f
             iters = test_param_set.iters
