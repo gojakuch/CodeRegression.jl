@@ -7,9 +7,9 @@ include("../examples/finding_functions_objectives.jl");
 const QUICK_TEST = get(ENV, "QUICK_TEST", "false") == "true"
 
 if QUICK_TEST
-    println("\n\nrunning tests in quick mode! for extensive testing, use:\n`julia> ENV[\"QUICK_TEST\"]=\"false\"`\n")
+    println("\n\nRunning tests in quick mode! For extensive testing, set:\n`julia> ENV[\"QUICK_TEST\"]=\"false\"`\n")
 else
-    println("\n\nrunning all tests! for quick testing mode, use:\n`julia> ENV[\"QUICK_TEST\"]=\"true\"`\n")
+    println("\n\nRunning all tests! For quick testing mode, set:\n`julia> ENV[\"QUICK_TEST\"]=\"true\"`\n")
 end
 
 @testset "tests" begin
@@ -190,6 +190,117 @@ end
 
         f = eval(p.cf.fdecl)
         @test loss(f) < 0.011
+    end
+
+    if !QUICK_TEST
+        @testset "finding functions with literal optimisation, fixed seeds" begin # code taken from examples/finding_functions_with_literal_opt.jl
+            allowed_ops = Dict{DataType, Vector{AllowedOperationDescription}}(
+                Bool => [
+                    AllowedOperationDescription(
+                        :(<), 
+                        NamedTuple[(type=Number, can_be_const=false), (type=Number, can_be_const=true)]
+                    ),
+                    AllowedOperationDescription(
+                        :(==), 
+                        NamedTuple[(type=Number, can_be_const=false), (type=Number, can_be_const=true)]
+                    ),
+                ],
+                Number => [
+                    AllowedOperationDescription(
+                        :(-), 
+                        NamedTuple[(type=Number, can_be_const=true)]
+                    ),
+                ]
+            )
+            for test_param_set in [
+                        (fname="2*sign(x)", target_f = (x)->2*sign(x), iters = (10, 5, 10), seeds = (2, 20, 200), precisions=(0.005, 0.03, 0.03)),
+                        (fname="2.5*sign(x)+0.5", target_f = (x)->2.5*sign(x)+0.5, iters = (10, 5,), seeds = (2, 20,), precisions=(0.03, 0.01,)),
+                        (fname="((x < 0.5 && x > -0.5) ? 1 : 0)", target_f = (x)->((x < 0.5 && x > -0.5) ? 1 : 0), iters = (10, 15, 10), seeds = (2, 20, 2000), precisions=(0.05, 0.01, 0.016)),
+                    ]
+                target_f = test_param_set.target_f
+
+                algparams, init_f = CodeRegression.init(
+                    #=initial_fdecl=# :(function (x::Float64)
+                        return 1
+                    end), 
+                    #=return_type=#Float64,  
+                    #=all_ops=#allowed_ops, 
+                    #=expr_gen_depth=#3,
+                    #=apply_literal_optim=#true, 
+                    #=literal_optim_iters=#50)
+                par_types = Tuple(algparams.f_arg_types)
+
+                max_size = 50
+                trim_size = 10
+                reproducing_pairs = 8
+                for seed_i in eachindex(test_param_set.seeds)
+                    seed = test_param_set.seeds[seed_i]
+                    iters = test_param_set.iters[seed_i]
+                    precision = test_param_set.precisions[seed_i]
+
+                    candidates = Pair{CandidateFunction, Float64}[Pair(init_f, NaN)];
+
+                    res = false
+                    Random.seed!(seed)
+                    for it in 1:iters
+                        # mutate
+                        mutpair(p) = Pair{CandidateFunction, Float64}(mutate(p[1]), NaN64)
+                        mutants = mutpair.(candidates)
+                        candidates = cat(candidates, mutants; dims=1)
+
+                        # reproduce
+                        children = Pair{CandidateFunction, Float64}[]
+                        for rp in 1:reproducing_pairs
+                            # shuffle!(candidates)
+                            if rp+1 > length(candidates)
+                                break
+                            end
+                            parent1 = candidates[rp]
+                            parent2 = rand(candidates[(rp+1):end])
+                            try # FIXME: remove and check for errors??
+                            push!(children, (reproduce(parent1[1], parent2[1]) => NaN64))
+                            catch
+                            end
+                        end
+                        candidates = cat(candidates, children; dims=1)
+
+                        # literal optimisation
+                        if algparams.apply_literal_optim
+                            swap_literals_pair(p) = swap_literals_with_params(p[1])
+                            ps = swap_literals_pair.(candidates)
+                            xs = -2:0.001:2
+                            loss = function(f)
+                                sum((target_f.(xs) - f.(xs)).^2)/100
+                            end
+
+                            for p in ps
+                                optimize_literals!(p, loss, algparams.literal_optim_iters, 0.01)
+                                push!(candidates, Pair(p.cf, NaN64))
+                            end
+                        end
+
+                        # compute objectives and sort
+                        pf = objective_precompile(candidates, par_types)
+                        objective!(target_f, candidates, pf)
+                        sort!(candidates; lt=(x, y)->(isless(x[2], y[2])))
+                        if length(candidates) > max_size
+                            candidates = candidates[1:trim_size]
+                        end
+
+                        if candidates[1][2] <= precision
+                            res = true
+                            break
+                        end
+                    end
+
+                    if !res
+                        println("Test failed (after ", iters, " iterations): ", test_param_set.fname, " with seed ", seed, ".\nBest candidate:\n", candidates[1][1].fdecl, "\nwith loss: ", candidates[1][2], "; required precision is: ", precision)
+                    end
+
+                    @test res
+                end
+            end
+        end
     end
 
 
