@@ -3,28 +3,35 @@ using CodeRegression
 
 include("finding_functions_objectives.jl");
 
-target_f = (x)->((x < 0.5 && x > -0.5) ? 1 : 0) # (x)->2*sign(x); (x)->2.5*sign(x)+0.5; (x)->((x < 0.5 && x > -0.5) ? 1 : 0); or similar functions can be approximated in this example
+target_f = (x, y)->(x/y) # (x)->(2*x+x/2) # (x)->(2*x)
+tf_vec = (q)->target_f(q...)
 
 allowed_ops = Dict{DataType, Vector{AllowedOperationDescription}}(
-    Bool => [
-        AllowedOperationDescription(
-            :(<), 
-            NamedTuple[(type=Number, can_be_const=false), (type=Number, can_be_const=true)] # FIXME: only works for numbers but how do we also do the same thing for integers and all the possible type variations later on?
-        ),
-        AllowedOperationDescription(
-            :(==), 
-            NamedTuple[(type=Number, can_be_const=false), (type=Number, can_be_const=true)] # FIXME: again, we should somehow signal all the types that we can take as an arg
-        ),
-    ],
     Number => [
         AllowedOperationDescription(
             :(-), 
             NamedTuple[(type=Number, can_be_const=true)]
         ),
+        AllowedOperationDescription(
+            :(+), 
+            NamedTuple[(type=Number, can_be_const=true), (type=Number, can_be_const=false)]
+        ),
+        AllowedOperationDescription(
+            :(-), 
+            NamedTuple[(type=Number, can_be_const=true), (type=Number, can_be_const=false)]
+        ),
+        AllowedOperationDescription(
+            :(*), 
+            NamedTuple[(type=Number, can_be_const=true), (type=Number, can_be_const=false)]
+        ),
+        AllowedOperationDescription(
+            :(/), 
+            NamedTuple[(type=Number, can_be_const=true), (type=Number, can_be_const=false)]
+        ),
     ]
 )
 algparams, init_f = CodeRegression.init(
-    #=initial_fdecl=# :(function (x::Float64)
+    #=initial_fdecl=# :(function (x::Float64, y::Float64)
         return 1
     end), 
     #=return_type=#Float64,  
@@ -67,9 +74,10 @@ for it in 1:iters
     if algparams.apply_literal_optim
         swap_literals_pair(p) = swap_literals_with_params(p[1])
         ps = swap_literals_pair.(candidates)
-        xs = -2:0.001:2
+        xs = [[x y] for x in -2:0.02:2, y in -2:0.02:2]
         loss = function(f)
-            sum((target_f.(xs) - f.(xs)).^2)/100
+            f_vec = (q)->f(q...)
+            sum((tf_vec.(xs) - f_vec.(xs)).^2)/100
         end
 
         for p in ps
@@ -80,7 +88,7 @@ for it in 1:iters
 
     # compute objectives and sort
     pf = objective_precompile(candidates, par_types)
-    objective!(target_f, candidates, pf)
+    objective_multivar!(tf_vec, candidates, pf)
     sort!(candidates; lt=(x, y)->(isless(x[2], y[2])))
     if length(candidates) > max_size
         candidates = candidates[1:trim_size]
@@ -88,3 +96,7 @@ for it in 1:iters
 end
 
 println(candidates[1])
+
+for c in candidates
+    println(c[1].fdecl)
+end
