@@ -7,9 +7,7 @@ function objective_precompile(candidates::Vector{Pair{CandidateFunction, Float64
         if isnan(l)
             f = eval(def)
             precompile(f, par_types)
-            pairs_and_functions[i] = function (x)
-                return f(x)
-            end
+            pairs_and_functions[i] = f
         end
     end
 
@@ -26,5 +24,18 @@ function objective!(target_f::Function, candidates::Vector{Pair{CandidateFunctio
         catch _
             candidates[i] = Pair{CandidateFunction, Float64}(candidates[i][1], Inf)
         end
+    end
+end
+
+function objective_multivar!(target_f_vec::Function, candidates::Vector{Pair{CandidateFunction, Float64}}, pairs_and_functions::Dict{Int, Function}, N = 100)
+    points = [(rand(2) .* 4 .- 2) for _ in 1:N]
+
+    for (i, f) in pairs_and_functions
+        # try 
+            f_vec = (q)->(f(q...))
+            candidates[i] = Pair{CandidateFunction, Float64}(candidates[i][1], sum(abs.(target_f_vec.(points) .- f_vec.(points))) / (N+1)) # MAE
+        # catch _
+        #     candidates[i] = Pair{CandidateFunction, Float64}(candidates[i][1], Inf)
+        # end
     end
 end
