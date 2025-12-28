@@ -48,8 +48,8 @@ function generate_op!(all_exprs::Dict{DataType, ConstsAndExprs}, algparams::Algo
                 are_all_args_const = false
                 push!(args, rand(all_exprs[general_type(param_info.type)].exprs))
             else
-                (ex, is_const) = rand(all_exprs[general_type(param_info.type)])
-                push!(args, ex)
+                (ex_, is_const) = rand(all_exprs[general_type(param_info.type)])
+                push!(args, deepcopy(ex_))
                 are_all_args_const = are_all_args_const && is_const
             end
         end
@@ -65,13 +65,20 @@ end
 
 function generate_stmt(all_exprs::Dict{DataType, ConstsAndExprs}, algparams::AlgorithmParameters) # returns the statement
     r = rand()
-
-    if(r < 0.25)
-        return generate_assignment(all_exprs, algparams)
-    elseif r < 0.5
-        return generate_return(all_exprs, algparams)
+    
+    if !isempty(all_exprs[Bool].exprs) # if-statement generation is possible
+        if(r < 0.25)
+            return generate_assignment(all_exprs, algparams)
+        elseif r < 0.5
+            return generate_return(all_exprs, algparams)
+        end
+        return generate_if(all_exprs, algparams)
     end
-    return generate_if(all_exprs, algparams)
+
+    if(r < 0.5)
+        return generate_assignment(all_exprs, algparams)
+    end
+    generate_return(all_exprs, algparams)
 end
 
 function generate_assignment(all_exprs::Dict{DataType, ConstsAndExprs}, algparams::AlgorithmParameters) # returns the statement
@@ -86,7 +93,7 @@ function generate_assignment(all_exprs::Dict{DataType, ConstsAndExprs}, algparam
     Expr(
         :(=),
         var,
-        deepcopy(rand(all_exprs[general_type(type)])[1]) # TODO: when do we need to copy and to deepcopy these generated exprs?? maybe don't use copy when generating `all_exprs` but only use this deepcopy everywhere
+        deepcopy(rand(all_exprs[general_type(type)])[1])
     )
 end
 
