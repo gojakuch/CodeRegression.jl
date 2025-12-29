@@ -30,6 +30,7 @@ algparams, init_f = CodeRegression.init(
     #=return_type=#Float64,  
     #=all_ops=#allowed_ops, 
     #=expr_gen_depth=#3,
+    #=apply_mutate_to_pure_exprs=#false,
     #=apply_literal_optim=#false, 
     #=literal_optim_iters=#0);
 par_types = Tuple(algparams.f_arg_types);
