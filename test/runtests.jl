@@ -47,6 +47,7 @@ end
                 #=return_type=#Float64,  
                 #=all_ops=#allowed_ops, 
                 #=expr_gen_depth=#3,
+                #=apply_mutate_to_pure_exprs=#false,
                 #=apply_literal_optim=#false, 
                 #=literal_optim_iters=#0)
             par_types = Tuple(algparams.f_arg_types)
@@ -128,7 +129,7 @@ end
                     end
                     return -x
                 end),
-            Float64,  Dict{DataType, Vector{AllowedOperationDescription}}(), 0, false, 0)
+            Float64,  Dict{DataType, Vector{AllowedOperationDescription}}(), 0, false, false, 0)
             cff_backup = deepcopy(cff)
             
             p = swap_literals_with_params(cff)
@@ -156,7 +157,7 @@ end
                     end
                     return -x
                 end), 
-            Float64,  Dict{DataType, Vector{AllowedOperationDescription}}(), 0, false, 0)
+            Float64,  Dict{DataType, Vector{AllowedOperationDescription}}(), 0, false, false, 0)
             p = swap_literals_with_params(cff)
             xs = -2:0.001:2
             loss = function(f)
@@ -179,7 +180,7 @@ end
                 end
                 return _cw_(-1.2)
             end),
-        Float64,  Dict{DataType, Vector{AllowedOperationDescription}}(), 0, false, 0)
+        Float64,  Dict{DataType, Vector{AllowedOperationDescription}}(), 0, false, false, 0)
         p = swap_literals_with_params(cff)
         xs = -2:0.01:2
         loss = function(f)
@@ -226,6 +227,7 @@ end
                     #=return_type=#Float64,  
                     #=all_ops=#allowed_ops, 
                     #=expr_gen_depth=#3,
+                    #=apply_mutate_to_pure_exprs=#false,
                     #=apply_literal_optim=#true, 
                     #=literal_optim_iters=#50)
                 par_types = Tuple(algparams.f_arg_types)

@@ -64,13 +64,22 @@ function mutate_if!(if_expr::Expr, mc::MutationContext)
     end
 end
 
+"""
+    this function does not follow the typical mutation visitor pattern because it does not mutate the original expression.
+    it is used to mutate rhs of assignments or subexpressions of return statements.
+
+    `ex` is supposed to be a pure expression, and `dt` its datatype.
+"""
+function mutate_pure_expression(ex::Expr, dt::DataType, mc::MutationContext)
+    all_ops = mc.f.algparams_ref.all_ops
+    gdt = general_type(dt)
+    # add parameter for `apply_mutate_to_pure_exprs` into algparams
+    rand(all_ops[gdt])
+end
+
 function mutate_assign!(assign_expr::Expr, mc::MutationContext)
     # TODO: add a possible lhs modification with proper types
-    # TODO: separate recursion for the rhs (mutate_expr or smth if it's a literal). potential SR.jl integration here (optional)
-    # var = assign_expr.args[1]
-    # assign_expr = generate_assignment(fc.exprs, rand(get_args(fc.fdecl)))
-    # assign_expr.args[1] = var
-    # body.args[ind] = assign_expr
+    # potential SR.jl integration here (optional)
 
     var = assign_expr.args[1]
     assign_expr.args[2] = rand(mc.all_exprs[general_type(mc.f.algparams_ref.f_arg_types[var])])[1]

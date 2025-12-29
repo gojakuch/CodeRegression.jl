@@ -47,6 +47,7 @@ struct AlgorithmParameters
     # algorithm details
     all_ops::Dict{DataType, Vector{AllowedOperationDescription}}
     expr_gen_depth::Int
+    apply_mutate_to_pure_exprs::Bool
     ## literal optimisation
     apply_literal_optim::Bool
     literal_optim_iters::Int
