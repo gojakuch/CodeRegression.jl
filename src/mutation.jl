@@ -68,25 +68,68 @@ end
     this function does not follow the typical mutation visitor pattern because it does not mutate the original expression.
     it is used to mutate rhs of assignments or subexpressions of return statements.
 
-    `ex` is supposed to be a pure expression, and `dt` its datatype.
+    `ex` is supposed to be a pure expression (or a Symbol or value), and `dt` its datatype.
 """
-function mutate_pure_expression(ex::Expr, dt::DataType, mc::MutationContext)
-    all_ops = mc.f.algparams_ref.all_ops
+function mutate_pure_expression(ex, dt::DataType, mc::MutationContext)
     gdt = general_type(dt)
-    # add parameter for `apply_mutate_to_pure_exprs` into algparams
+    if !mc.f.algparams_ref.apply_mutate_to_pure_exprs
+        return rand(mc.all_exprs[gdt])[1]
+    end
+
+    # TODO: dispatch on `ex`
+    r = rand()
+    nosubexprs = typeof(ex) != Expr # TODO: is everything covered by this type check?
+    if nosubexprs || 3*r < 1
+        # add something
+        
+        # 1. if there are no type-preserving operations for `gdt` return a random expression of this type
+        if isempty(mc.f.algparams_ref._type_preserving_ops[gdt])
+            return rand(mc.all_exprs[gdt])[1]
+        end
+        # 2. otherwise, apply a random type-preserving operation
+        (op, idx_arr) = rand(mc.f.algparams_ref._type_preserving_ops[gdt])
+        selected_i = rand(idx_arr) 
+        args = []
+        for i in eachindex(op.params)
+            param_info = op.params[i]
+            if i == selected_i
+                push!(args, ex)
+                continue
+            end
+            if !param_info.can_be_const
+                push!(args, rand(mc.all_exprs[general_type(param_info.type)].exprs))
+            else
+                (ex_, _) = rand(mc.all_exprs[general_type(param_info.type)])
+                push!(args, deepcopy(ex_))
+            end
+        end
+
+        return Expr(:call, op.callee, args...)
+    elseif 3*r < 2
+        # remove something in the expression
+
+        # 
+    else
+        # change a subexpression
+
+        # 1. determine a random subexpression and it's type
+        # 2. call mutate_pure_expression
+    end
+
+    # TODO
+    all_ops = mc.f.algparams_ref.all_ops
     rand(all_ops[gdt])
 end
 
 function mutate_assign!(assign_expr::Expr, mc::MutationContext)
-    # TODO: add a possible lhs modification with proper types
     # potential SR.jl integration here (optional)
 
-    var = assign_expr.args[1]
-    assign_expr.args[2] = rand(mc.all_exprs[general_type(mc.f.algparams_ref.f_arg_types[var])])[1]
+    var = assign_expr.args[1] # TODO: add a possible lhs modification with proper types
+    assign_expr.args[2] = mutate_pure_expression(assign_expr.args[2], mc.f.algparams_ref.f_arg_types[var], mc)
 end
 
 function mutate_return!(r::Expr, mc::MutationContext)
-    r.args[1] = rand(mc.all_exprs[general_type(mc.f.algparams_ref.f_return_type)])[1]
+    r.args[1] = mutate_pure_expression(r.args[1], mc.f.algparams_ref.f_return_type, mc)
 end
 
 function mutate_call!(c::Expr, mc::MutationContext)
