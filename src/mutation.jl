@@ -79,7 +79,7 @@ function mutate_pure_expression(ex, dt::DataType, mc::MutationContext)
 
     # TODO: dispatch on `ex`
     r = rand()
-    nosubexprs = typeof(ex) != Expr # TODO: is everything covered by this type check?
+    nosubexprs = typeof(ex) != Expr || (ex.head == :call && ex.args[1] == :_cw_) # TODO: is everything covered by this check?
     if nosubexprs || 3*r < 1
         # add something: apply a random type-preserving operation
         (op, idx_arr) = rand(mc.f.algparams_ref._type_preserving_ops[gdt])
@@ -106,7 +106,7 @@ function mutate_pure_expression(ex, dt::DataType, mc::MutationContext)
         # 1. if the expression is formed using a type-preserving operation, just get one of its arguments and return
         if ex.head == :call
             for (op, param_idx_arr) in mc.f.algparams_ref._type_preserving_ops[gdt]
-                if op.callee == ex.args[1] # assuming this check is enough
+                if op.callee == ex.args[1] && length(op.params) == (length(ex.args)-1) # FIXME: this is not enough. some argument types might still differ
                     param_idx = rand(param_idx_arr)+1
                     return deepcopy(ex.args[param_idx])
                 end
@@ -118,7 +118,7 @@ function mutate_pure_expression(ex, dt::DataType, mc::MutationContext)
     # change a subexpression: determine a random subexpression and it's type and call mutate_pure_expression on it
     if ex.head == :call
         for op::AllowedOperationDescription in mc.f.algparams_ref.all_ops[gdt]
-            if op.callee == ex.args[1] # assuming this check is enough
+            if op.callee == ex.args[1] && length(op.params) == (length(ex.args)-1) # FIXME: this is not enough. some argument types might still differ
                 new_ex = deepcopy(ex)
                 param_idx = rand(eachindex(op.params))+1
                 new_ex.args[param_idx] = mutate_pure_expression(new_ex.args[param_idx], op.params[param_idx-1].type, mc) # FIXME: tis can mess up the `can_be_const`
@@ -127,7 +127,7 @@ function mutate_pure_expression(ex, dt::DataType, mc::MutationContext)
         end
     end
 
-    @warn "something went wrong inside `mutate_pure_expression` and this line was reached"
+    @warn "something went wrong inside `mutate_pure_expression` and this line was reached. `ex` was: "*string(ex)
 end
 
 function mutate_assign!(assign_expr::Expr, mc::MutationContext)
