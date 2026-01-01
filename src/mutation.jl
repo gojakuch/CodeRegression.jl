@@ -68,11 +68,12 @@ end
     this function does not follow the typical mutation visitor pattern because it does not mutate the original expression.
     it is used to mutate rhs of assignments or subexpressions of return statements.
 
-    `ex` is supposed to be a pure expression (or a Symbol or value), and `dt` its datatype.
+    `ex` is supposed to be a pure expression (or a Symbol or value), and `dt` its type.
 """
 function mutate_pure_expression(ex, dt::DataType, mc::MutationContext)
     gdt = general_type(dt)
-    if !mc.f.algparams_ref.apply_mutate_to_pure_exprs
+    if !mc.f.algparams_ref.apply_mutate_to_pure_exprs || isempty(mc.f.algparams_ref._type_preserving_ops[gdt])
+        # if apply_mutate_to_pure_exprs==false or there are no type-preserving operations for `gdt` return a random expression of this type
         return rand(mc.all_exprs[gdt])[1]
     end
 
@@ -80,13 +81,7 @@ function mutate_pure_expression(ex, dt::DataType, mc::MutationContext)
     r = rand()
     nosubexprs = typeof(ex) != Expr # TODO: is everything covered by this type check?
     if nosubexprs || 3*r < 1
-        # add something
-        
-        # 1. if there are no type-preserving operations for `gdt` return a random expression of this type
-        if isempty(mc.f.algparams_ref._type_preserving_ops[gdt])
-            return rand(mc.all_exprs[gdt])[1]
-        end
-        # 2. otherwise, apply a random type-preserving operation
+        # add something: apply a random type-preserving operation
         (op, idx_arr) = rand(mc.f.algparams_ref._type_preserving_ops[gdt])
         selected_i = rand(idx_arr) 
         args = []
@@ -96,7 +91,7 @@ function mutate_pure_expression(ex, dt::DataType, mc::MutationContext)
                 push!(args, ex)
                 continue
             end
-            if !param_info.can_be_const
+            if !param_info.can_be_const # TODO: add an option to add an optimisable literal coefficient here for all the new terms of type `Number`
                 push!(args, rand(mc.all_exprs[general_type(param_info.type)].exprs))
             else
                 (ex_, _) = rand(mc.all_exprs[general_type(param_info.type)])
@@ -108,17 +103,31 @@ function mutate_pure_expression(ex, dt::DataType, mc::MutationContext)
     elseif 3*r < 2
         # remove something in the expression
 
-        # 
-    else
-        # change a subexpression
-
-        # 1. determine a random subexpression and it's type
-        # 2. call mutate_pure_expression
+        # 1. if the expression is formed using a type-preserving operation, just get one of its arguments and return
+        if ex.head == :call
+            for (op, param_idx_arr) in mc.f.algparams_ref._type_preserving_ops[gdt]
+                if op.callee == ex.args[1] # assuming this check is enough
+                    param_idx = rand(param_idx_arr)+1
+                    return deepcopy(ex.args[param_idx])
+                end
+            end
+        end
+        # 2. otherwise, go to "change a subexpression"
     end
 
-    # TODO
-    all_ops = mc.f.algparams_ref.all_ops
-    rand(all_ops[gdt])
+    # change a subexpression: determine a random subexpression and it's type and call mutate_pure_expression on it
+    if ex.head == :call
+        for op::AllowedOperationDescription in mc.f.algparams_ref.all_ops[gdt]
+            if op.callee == ex.args[1] # assuming this check is enough
+                new_ex = deepcopy(ex)
+                param_idx = rand(eachindex(op.params))+1
+                new_ex.args[param_idx] = mutate_pure_expression(new_ex.args[param_idx], op.params[param_idx-1].type, mc) # FIXME: tis can mess up the `can_be_const`
+                return new_ex
+            end
+        end
+    end
+
+    @warn "something went wrong inside `mutate_pure_expression` and this line was reached"
 end
 
 function mutate_assign!(assign_expr::Expr, mc::MutationContext)
@@ -133,7 +142,7 @@ function mutate_return!(r::Expr, mc::MutationContext)
 end
 
 function mutate_call!(c::Expr, mc::MutationContext)
-    @warn "cannot mutate calls yet" # TODO: implement this
+    @warn "cannot mutate calls yet" # TODO: implement this like in `mutate_pure_expression`
 end
 
 function mutate!(e::Expr, mc::MutationContext)
