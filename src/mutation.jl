@@ -72,34 +72,54 @@ end
 """
 function mutate_pure_expression(ex, dt::DataType, mc::MutationContext)
     gdt = general_type(dt)
-    if !mc.f.algparams_ref.apply_mutate_to_pure_exprs || isempty(mc.f.algparams_ref._type_preserving_ops[gdt])
-        # if apply_mutate_to_pure_exprs==false or there are no type-preserving operations for `gdt` return a random expression of this type
+    if !mc.f.algparams_ref.apply_mutate_to_pure_exprs || !(haskey(mc.f.algparams_ref._type_preserving_ops, gdt)) || isempty(mc.f.algparams_ref._type_preserving_ops[gdt])
+        # if apply_mutate_to_pure_exprs==false or there are no type-preserving operations for `gdt` return a random expression of this type (if possible)
+        if !(haskey(mc.all_exprs, gdt)) || isempty(mc.all_exprs[gdt])
+            @warn "`mutate_pure_expression` could not mutate expression `"*string(ex)*"`, returning a copy."
+            return deepcopy(ex)
+        end
         return rand(mc.all_exprs[gdt])[1]
     end
 
     # TODO: dispatch on `ex`
     r = rand()
-    nosubexprs = typeof(ex) != Expr || (ex.head == :call && ex.args[1] == :_cw_) # TODO: is everything covered by this check?
-    if nosubexprs || 3*r < 1
+    seems_atomic = typeof(ex) != Expr || (ex.head == :call && ex.args[1] == :_cw_) # TODO: is everything covered by this check?
+    if seems_atomic || 3*r < 1
         # add something: apply a random type-preserving operation
-        (op, idx_arr) = rand(mc.f.algparams_ref._type_preserving_ops[gdt])
-        selected_i = rand(idx_arr) 
-        args = []
-        for i in eachindex(op.params)
-            param_info = op.params[i]
-            if i == selected_i
-                push!(args, ex)
-                continue
+        n = length(mc.f.algparams_ref._type_preserving_ops[gdt])
+        first_rand_op_idx = rand_op_idx = rand(1:n)
+        while rand_op_idx < first_rand_op_idx + n # we have n tries just in case
+            remainder = rand_op_idx % n
+            (op, idx_arr) = mc.f.algparams_ref._type_preserving_ops[gdt][(remainder==0) ? n : remainder]
+            selected_i = rand(idx_arr) 
+            args = []
+            arg_generation_success = true
+            for i in eachindex(op.params)
+                param_info = op.params[i]
+                if i == selected_i
+                    push!(args, ex)
+                    continue
+                end
+                param_gt = general_type(param_info.type)
+                if haskey(mc.all_exprs, param_gt)
+                    if !param_info.can_be_const # TODO: add an option to add an optimisable literal coefficient here for all the new terms of type `Number`
+                        push!(args, rand(mc.all_exprs[param_gt].exprs))
+                    else
+                        (ex_, _) = rand(mc.all_exprs[param_gt])
+                        push!(args, deepcopy(ex_))
+                    end
+                else
+                    # skip and try another operation or go further
+                    arg_generation_success = false
+                    rand_op_idx += 1
+                    break
+                end
             end
-            if !param_info.can_be_const # TODO: add an option to add an optimisable literal coefficient here for all the new terms of type `Number`
-                push!(args, rand(mc.all_exprs[general_type(param_info.type)].exprs))
-            else
-                (ex_, _) = rand(mc.all_exprs[general_type(param_info.type)])
-                push!(args, deepcopy(ex_))
+
+            if arg_generation_success
+                return Expr(:call, op.callee, args...)
             end
         end
-
-        return Expr(:call, op.callee, args...)
     elseif 3*r < 2
         # remove something in the expression
 
@@ -117,17 +137,20 @@ function mutate_pure_expression(ex, dt::DataType, mc::MutationContext)
 
     # change a subexpression: determine a random subexpression and it's type and call mutate_pure_expression on it
     if ex.head == :call
-        for op::AllowedOperationDescription in mc.f.algparams_ref.all_ops[gdt]
-            if op.callee == ex.args[1] && length(op.params) == (length(ex.args)-1) # FIXME: this is not enough. some argument types might still differ
-                new_ex = deepcopy(ex)
-                param_idx = rand(eachindex(op.params))+1
-                new_ex.args[param_idx] = mutate_pure_expression(new_ex.args[param_idx], op.params[param_idx-1].type, mc) # FIXME: tis can mess up the `can_be_const`
-                return new_ex
+        if haskey(mc.f.algparams_ref.all_ops, gdt)
+            for op::AllowedOperationDescription in mc.f.algparams_ref.all_ops[gdt]
+                if op.callee == ex.args[1] && length(op.params) == (length(ex.args)-1) # FIXME: this is not enough. some argument types might still differ
+                    new_ex = deepcopy(ex)
+                    param_idx = rand(eachindex(op.params))+1
+                    new_ex.args[param_idx] = mutate_pure_expression(new_ex.args[param_idx], op.params[param_idx-1].type, mc) # FIXME: tis can mess up the `can_be_const`
+                    return new_ex
+                end
             end
         end
     end
 
     @warn "something went wrong inside `mutate_pure_expression` and this line was reached. `ex` was: "*string(ex)
+    return deepcopy(ex)
 end
 
 function mutate_assign!(assign_expr::Expr, mc::MutationContext)
