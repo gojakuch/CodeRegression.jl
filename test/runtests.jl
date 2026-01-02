@@ -12,7 +12,12 @@ else
     println("\n\nRunning all tests! For quick testing mode, set:\n`julia> ENV[\"QUICK_TEST\"]=\"true\"`\n")
 end
 
-@testset "tests" begin
+struct DummyDataType_test
+end
+struct DummyDataType2_test
+end
+
+@testset verbose=true "tests" begin
     @testset "finding functions, fixed seeds" begin # code taken from examples/finding_functions.jl
         allowed_ops = Dict{DataType, Vector{AllowedOperationDescription}}(
             Bool => [
@@ -306,8 +311,155 @@ end
     end
 
 
+    # this tests `mutate_pure_expression` for corner-case handling, but also tests expression generation and MutationContext creation along the way.
+    @testset "`mutate_pure_expression` test" begin
+        mpe_test_seeds = (QUICK_TEST) ? (1:10) : (1:100)
+
+        # we need exactly this set of operations for extensive testing!! do not change this, add new tests if necessary
+        mpe_test_allowed_ops = Dict{DataType, Vector{AllowedOperationDescription}}(
+            Number => [
+                AllowedOperationDescription(
+                    :(-), 
+                    NamedTuple[(type=Number, can_be_const=true)]
+                ),
+                AllowedOperationDescription(
+                    :(+), 
+                    NamedTuple[(type=Number, can_be_const=true), (type=Number, can_be_const=false)]
+                ),
+                AllowedOperationDescription(
+                    :(-), 
+                    NamedTuple[(type=Number, can_be_const=true), (type=Number, can_be_const=false)]
+                ),
+                AllowedOperationDescription(
+                    :(*), 
+                    NamedTuple[(type=Number, can_be_const=true), (type=Number, can_be_const=false)]
+                ),
+                AllowedOperationDescription(
+                    :(/), 
+                    NamedTuple[(type=Number, can_be_const=true), (type=Number, can_be_const=false)]
+                ),
+                AllowedOperationDescription(
+                    :(f), 
+                    NamedTuple[(type=Number, can_be_const=true), (type=Number, can_be_const=true), (type=Number, can_be_const=false)]
+                ),
+                AllowedOperationDescription(
+                    :(f_int), 
+                    NamedTuple[(type=Int, can_be_const=true), (type=Int, can_be_const=false), (type=Number, can_be_const=false)]
+                ),
+            ],
+            String => [
+                AllowedOperationDescription(
+                    :(string), 
+                    NamedTuple[(type=Int, can_be_const=true)]
+                ),
+            ],
+            DummyDataType2_test => [
+                AllowedOperationDescription(
+                    :(f_dummy2), 
+                    NamedTuple[(type=Number, can_be_const=true), (type=Number, can_be_const=true), (type=Number, can_be_const=false)]
+                ),
+            ],
+        )
+        _, init_f = CodeRegression.init(
+            #=initial_fdecl=# :(function (x::Float64, y::Float64)
+                return 1
+            end), 
+            #=return_type=#Float64,  
+            #=all_ops=#mpe_test_allowed_ops, 
+            #=expr_gen_depth=#3,
+            #=apply_mutate_to_pure_exprs=#true,
+            #=apply_literal_optim=#false, 
+            #=literal_optim_iters=#0);
+        
+        @testset "`mutate_pure_expression` test (handling atomic stuff)" begin
+            for seed in mpe_test_seeds
+                Random.seed!(seed)
+
+                res = CodeRegression.mutate_pure_expression(:(_cw_(123123.123123)), Number, CodeRegression.MutationContext(init_f))
+                @test occursin("_cw_(123123.123123)", string(res))
+
+                res = CodeRegression.mutate_pure_expression(:(sampletext), Number, CodeRegression.MutationContext(init_f))
+                @test occursin("sampletext", string(res))
+            end
+        end
+
+        @testset "`mutate_pure_expression` test (handling a type with no proper operations)" begin
+            pure_ex = :(string(1))
+            res = CodeRegression.mutate_pure_expression(pure_ex, String, CodeRegression.MutationContext(init_f))
+            @test string(pure_ex) == string(res) # shouldn't mutate, as there's no option to mutate Integers
+
+            res = CodeRegression.mutate_pure_expression(:("sampletext"), String, CodeRegression.MutationContext(init_f))
+            @test occursin("sampletext", string(res)) # shouldn't mutate, as there's no option to mutate Strings
+
+            res = CodeRegression.mutate_pure_expression(:([1, 2]), Array{Int, 2}, CodeRegression.MutationContext(init_f))
+            @test occursin("[1, 2]", string(res)) # shouldn't mutate, as the type is not listed
+
+            pure_ex = :(abcdefg(0,1,2))
+            res = CodeRegression.mutate_pure_expression(pure_ex, DummyDataType_test, CodeRegression.MutationContext(init_f))
+            @test string(pure_ex) == string(res) # shouldn't mutate, as the type is not listed
+        end
+
+        @testset "`mutate_pure_expression` test (handling function call expressions)" begin
+            for seed in mpe_test_seeds
+                Random.seed!(seed)
+
+                pure_ex = :(_cw_(2.0) + _cw_(1.0))
+                res = CodeRegression.mutate_pure_expression(pure_ex, Number, CodeRegression.MutationContext(init_f))
+                @test string(pure_ex) != string(res) # should change something
+
+                pure_ex = :(x + (y * z))
+                res = CodeRegression.mutate_pure_expression(pure_ex, Number, CodeRegression.MutationContext(init_f))
+                @test string(pure_ex) != string(res) # should change something
+
+                pure_ex = :(-_cw_(1.0))
+                res = CodeRegression.mutate_pure_expression(pure_ex, Number, CodeRegression.MutationContext(init_f))
+                @test string(pure_ex) != string(res) # should change something
+
+                pure_ex = :(f(_cw_(1.0), x+x, y))
+                res = CodeRegression.mutate_pure_expression(pure_ex, Number, CodeRegression.MutationContext(init_f))
+                @test string(pure_ex) != string(res) # should change something
+
+                pure_ex = :(f_dummy2(_cw_(1.0), x+x, y))
+                res = CodeRegression.mutate_pure_expression(pure_ex, DummyDataType2_test, CodeRegression.MutationContext(init_f))
+                @test string(pure_ex) != string(res) # should change something
+            end
+
+            pure_ex = :(f_int(_cw_(1), _cw_(2), y))
+            res = CodeRegression.mutate_pure_expression(pure_ex, Number, CodeRegression.MutationContext(init_f))
+            # shouldn't throw errors
+        end
+
+        # now, we set apply_mutate_to_pure_exprs=false
+        _, init_f = CodeRegression.init(
+            #=initial_fdecl=# :(function (x::Float64, y::Float64)
+                return 1
+            end), 
+            #=return_type=#Float64,  
+            #=all_ops=#mpe_test_allowed_ops, 
+            #=expr_gen_depth=#3,
+            #=apply_mutate_to_pure_exprs=#false, 
+            #=apply_literal_optim=#false, 
+            #=literal_optim_iters=#0);
+
+        @testset "`mutate_pure_expression` test (apply_mutate_to_pure_exprs=false)" begin
+            for seed in mpe_test_seeds
+                Random.seed!(seed)
+
+                res = CodeRegression.mutate_pure_expression(:(_cw_(123123.123123)), Number, CodeRegression.MutationContext(init_f))
+                @test !occursin("_cw_(123123.123123)", string(res)) # with !
+
+                res = CodeRegression.mutate_pure_expression(:(sampletext), Number, CodeRegression.MutationContext(init_f))
+                @test !occursin("sampletext", string(res)) # with !
+            end
+        end
+    end
+
+
     # TODO: add a copy validity test (so that we know that both merge and mutate don't accidentally change the original functions)
 
 
     # TODO: add tests that check if the generation is copying the subexpressions to avoid this situation in parametrisation and more (not only with constants)
+
+
+    # TODO: add benchmarks and benchmark tests separately once all the main functionality is implemented
 end
