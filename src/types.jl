@@ -16,7 +16,7 @@ Base.isempty(ce::ConstsAndExprs) = isempty(ce.consts) && isempty(ce.exprs)
     TODO
 """
 struct _AllowedOperationDescriptionParameter
-    type::DataType
+    type::DataType # FIXME: should generalise the type automatically in its constructor
     can_be_const::Bool
 end
 

@@ -2,6 +2,7 @@ function generate_exprs(algparams::AlgorithmParameters)::Dict{DataType, ConstsAn
     arg_types = algparams.f_arg_types
     return_type = algparams.f_return_type
     iters = algparams.expr_gen_depth
+    all_ops = algparams.all_ops
 
     all_exprs = Dict{DataType, ConstsAndExprs}( # ALL OF THESE LISTS MUST BE NON-EMPTY
         Bool => ConstsAndExprs(make_const_wrap.([true, false]), Any[]),
@@ -14,10 +15,16 @@ function generate_exprs(algparams::AlgorithmParameters)::Dict{DataType, ConstsAn
         end
         push!(all_exprs[gt].exprs, arg)
     end
+    for rtype in keys(all_ops)
+        gt = general_type(rtype)
+        if !haskey(all_exprs, gt)
+            all_exprs[gt] = ConstsAndExprs(Expr[], [])
+        end
+    end
     rt = general_type(return_type) # should we generalise the return type or not?
     if !haskey(all_exprs, rt)
         all_exprs[rt] = ConstsAndExprs(Expr[], [])
-        @warn "generate_return returned nothing, as no value of the return type has been found"
+        @warn "`generate_return` will return nothing, as no value of the return type has been found"
         # FIXME: this must not be empty!
     end
     if haskey(all_exprs, Any)
@@ -43,20 +50,34 @@ function generate_op!(all_exprs::Dict{DataType, ConstsAndExprs}, algparams::Algo
 
         are_all_args_const = true
         args = []
+        skip_bc_no_exprs_found = false
         for param_info in params
+            gpit = general_type(param_info.type)
+            if !(gpit in keys(all_exprs))
+                # impossible to generate an expression using this operation, skip
+                # TODO: instead of skipping, move to another operation if possible (like in `mutate_pure_expression`)
+                skip_bc_no_exprs_found = true
+                break
+            end
+            param_type_exprs = all_exprs[gpit]
             if !param_info.can_be_const
                 are_all_args_const = false
-                push!(args, rand(all_exprs[general_type(param_info.type)].exprs))
+                push!(args, rand(param_type_exprs.exprs))
             else
-                (ex_, is_const) = rand(all_exprs[general_type(param_info.type)])
+                (ex_, is_const) = rand(param_type_exprs)
                 push!(args, deepcopy(ex_))
                 are_all_args_const = are_all_args_const && is_const
             end
         end
+        if skip_bc_no_exprs_found
+            # @warn ""
+            continue
+        end
 
         ex = Expr(:call, op, args...)
+        # `all_exprs[general_type(rtype)]` should already exist (see `generate_exprs`)
         if are_all_args_const
-            push!(all_exprs[general_type(rtype)].consts, ex)
+            push!(all_exprs[general_type(rtype)].consts, ex) 
         else
             push!(all_exprs[general_type(rtype)].exprs, ex)
         end
