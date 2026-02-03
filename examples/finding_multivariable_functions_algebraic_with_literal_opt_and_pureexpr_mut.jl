@@ -3,7 +3,7 @@ using CodeRegression
 
 include("finding_functions_objectives.jl");
 
-target_f = (x, y)->(x/y) # (x)->(2*x+x/2) # (x)->(2*x)
+target_f = (x, y) -> (2x*x + 3y - 1) # (x,y)->(2*x) seed 20 # (x, y)->(x/y) seed 20
 tf_vec = (q)->target_f(q...)
 
 allowed_ops = Dict{DataType, Vector{AllowedOperationDescription}}(
@@ -47,7 +47,7 @@ trim_size = 10;
 iters = 5;
 reproducing_pairs = 8;
 
-Random.seed!(20)
+Random.seed!(2)
 for it in 1:iters
     # mutate
     mutpair(p) = Pair{CandidateFunction, Float64}(mutate(p[1]), NaN64)
@@ -94,10 +94,12 @@ for it in 1:iters
     if length(candidates) > max_size
         candidates = candidates[1:trim_size]
     end
+
+    println("\nbest candidate so far (", it, "):\n", candidates[1][1].fdecl, "\nerror: ", candidates[1][2])
 end
 
-println(candidates[1])
+println("\nbest candidate:\n", candidates[1][1].fdecl, "\nerror: ", candidates[1][2])
 
-for c in candidates
-    println(c[1].fdecl)
+for ci in eachindex(candidates)
+    println("\ncandidate ", ci, ":\n", candidates[ci][1].fdecl, "\nerror: ", candidates[ci][2])
 end
