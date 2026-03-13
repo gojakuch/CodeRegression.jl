@@ -88,8 +88,8 @@ for it in 1:iters
     end
 
     # compute objectives and sort
-    pf = objective_precompile(candidates, par_types)
-    objective_multivar!(tf_vec, candidates, pf)
+    generate_callables!(candidates)
+    objective_multivar!(tf_vec, candidates)
     sort!(candidates; lt=(x, y)->(isless(x[2], y[2])))
     if length(candidates) > max_size
         candidates = candidates[1:trim_size]

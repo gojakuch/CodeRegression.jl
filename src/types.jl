@@ -101,10 +101,13 @@ end
 """
     `CandidateFunction` wraps a function declaration expression. 
 """
-struct CandidateFunction
+mutable struct CandidateFunction
     fdecl::Expr
     algparams_ref::AlgorithmParameters
+    callable::Union{RuntimeGeneratedFunction, Nothing} # WARNING: check if there's no mismatch between fdecl and callable occuring anywhere if fdecl is changed potentially
 end
+
+CandidateFunction(fdecl::Expr, algparams_ref::AlgorithmParameters) = CandidateFunction(fdecl, algparams_ref, nothing)
 
 
 """

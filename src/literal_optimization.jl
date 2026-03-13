@@ -3,11 +3,11 @@
 """
 mutable struct ParamLiteralCandidateFunction
     cf::CandidateFunction # original candidate function (copy) TODO: do we need this to be a copy or just assume that the optimisation is reliable and will always improve the function?
-    param_fdecl::Expr # declaration of the function where all the literals are parametres instead
-    param_f::Function # = eval(param_fdecl)
+    param_fdecl::Expr # declaration of the function where all the literals are parameteres instead
+    param_f::RuntimeGeneratedFunction # = kind of like eval(param_fdecl), actually @RuntimeGeneratedFunction(param_fdecl)
     literals::Vector{Expr} # literals from `param_fdecl`, not `cf.fdecl`
     values::Vector # initial values of these literals
-    new_params::Vector{Symbol} # names for parametres, corresponding to each literal in `literals`
+    new_params::Vector{Symbol} # names for parameteres, corresponding to each literal in `literals`
 end
 
 
@@ -26,7 +26,7 @@ function swap_literals_with_params(cf::CandidateFunction)::ParamLiteralCandidate
         push!(param_decl.args[1].args, param_name)
     end
 
-    ParamLiteralCandidateFunction(deepcopy(cf), param_decl, eval(param_decl), literals, values, new_params)
+    ParamLiteralCandidateFunction(deepcopy(cf), param_decl, @RuntimeGeneratedFunction(param_decl), literals, values, new_params)
 end
 
 """
@@ -65,5 +65,8 @@ function optimize_literals!(plcf::ParamLiteralCandidateFunction, loss::Function,
     end
     # replace the body of cf.fdecl
     plcf.cf.fdecl.args[2] = get_body(plcf.param_fdecl)
+    plcf.cf.callable = nothing
     nothing
 end
+
+# TODO: add other constant optimisation methods
