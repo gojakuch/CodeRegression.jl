@@ -5,8 +5,12 @@ function reproduce(cf1::CandidateFunction, cf2::CandidateFunction)::CandidateFun
     body2 = deepcopy(get_body(cf2.fdecl))
 
     function random_body_merge(body1, body2, arg)::Expr
-        check_expr_type(body1, :block)
-        check_expr_type(body2, :block)
+        try # THIS IS A CRUTCHFIX, WE NEED TO REDESIGN MERGING COMPLETELY (see issue #15)
+            check_expr_type(body1, :block)
+            check_expr_type(body2, :block)
+        catch
+            return body1
+        end
         new_body = :(return nothing)
         r = rand()
 
@@ -108,11 +112,11 @@ function reproduce(cf1::CandidateFunction, cf2::CandidateFunction)::CandidateFun
     Random.shuffle!(bodies)
 
     # get a random argument and skip the function name if it's not anonymous
-    randarg = rand(get_args(f1))
+    randarg = rand(get_args(cf1.fdecl))
     new_body = random_body_merge(bodies..., randarg)
 
-    new_function_decl = copy(f1)
+    new_function_decl = copy(cf1.fdecl)
     new_function_decl.args[2] = new_body
 
-    return CandidateFunction(new_function_decl, cf1.return_type)
+    return CandidateFunction(new_function_decl, cf1.algparams_ref)
 end
