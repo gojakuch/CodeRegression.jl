@@ -1,5 +1,6 @@
 using Random
 using CodeRegression
+# using RuntimeGeneratedFunctions
 
 include("finding_functions_objectives.jl");
 
@@ -37,10 +38,10 @@ par_types = Tuple(algparams.f_arg_types);
 candidates = Pair{CandidateFunction, Float64}[Pair(init_f, NaN)];
 max_size = 50;
 trim_size = 10;
-iters = 5;
+iters = 15;
 reproducing_pairs = 8;
 
-Random.seed!(2)
+Random.seed!(1)
 for it in 1:iters
     # mutate
     mutpair(p) = Pair{CandidateFunction, Float64}(mutate(p[1]), NaN64)
@@ -65,12 +66,13 @@ for it in 1:iters
     candidates = cat(candidates, children; dims=1)
 
     # compute objectives and sort
-    pf = objective_precompile(candidates, par_types)
-    objective!(target_f, candidates, pf)
+    generate_callables!(candidates)
+    objective!(target_f, candidates)
     sort!(candidates; lt=(x, y)->(isless(x[2], y[2])))
     if length(candidates) > max_size
         candidates = candidates[1:trim_size]
     end
 end
 
-println(candidates[1])
+println(candidates[1][1].fdecl)
+println(candidates[1][2])

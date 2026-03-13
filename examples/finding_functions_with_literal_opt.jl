@@ -3,7 +3,7 @@ using CodeRegression
 
 include("finding_functions_objectives.jl");
 
-target_f = (x)->((x < 0.5 && x > -0.5) ? 1 : 0) # (x)->2*sign(x); (x)->2.5*sign(x)+0.5; (x)->((x < 0.5 && x > -0.5) ? 1 : 0); or similar functions can be approximated in this example
+target_f = (x)->2.5*sign(x)+0.5 # (x)->2*sign(x); (x)->2.5*sign(x)+0.5; (x)->((x < 0.5 && x > -0.5) ? 1 : 0); or similar functions can be approximated in this example
 
 allowed_ops = Dict{DataType, Vector{AllowedOperationDescription}}(
     Bool => [
@@ -25,7 +25,7 @@ allowed_ops = Dict{DataType, Vector{AllowedOperationDescription}}(
 )
 algparams, init_f = CodeRegression.init(
     #=initial_fdecl=# :(function (x::Float64)
-        return 1
+        return _cw_(1.0)
     end), 
     #=return_type=#Float64,  
     #=all_ops=#allowed_ops, 
@@ -37,10 +37,10 @@ par_types = Tuple(algparams.f_arg_types);
 candidates = Pair{CandidateFunction, Float64}[Pair(init_f, NaN)];
 max_size = 50;
 trim_size = 10;
-iters = 5;
+iters = 10;
 reproducing_pairs = 8;
 
-Random.seed!(20)
+Random.seed!(3)
 for it in 1:iters
     # mutate
     mutpair(p) = Pair{CandidateFunction, Float64}(mutate(p[1]), NaN64)
@@ -80,12 +80,13 @@ for it in 1:iters
     end
 
     # compute objectives and sort
-    pf = objective_precompile(candidates, par_types)
-    objective!(target_f, candidates, pf)
+    generate_callables!(candidates)
+    objective!(target_f, candidates)
     sort!(candidates; lt=(x, y)->(isless(x[2], y[2])))
     if length(candidates) > max_size
         candidates = candidates[1:trim_size]
     end
 end
 
-println(candidates[1])
+println(candidates[1][1].fdecl)
+println(candidates[1][2])
