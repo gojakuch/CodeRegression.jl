@@ -6,8 +6,9 @@ function objective_precompile(candidates::Vector{Pair{CandidateFunction, Float64
         def = cf.fdecl
         if isnan(l)
             f = eval(def)
-            precompile(f, par_types)
-            pairs_and_functions[i] = f
+            f2 = (x...)->Base.invokelatest(f, x...)
+            # precompile(f2, par_types)
+            pairs_and_functions[i] = f2
         end
     end
 
@@ -19,11 +20,11 @@ function objective!(target_f::Function, candidates::Vector{Pair{CandidateFunctio
     push!(points, 0)
 
     for (i, f) in pairs_and_functions
-        try 
+        # try 
             candidates[i] = Pair{CandidateFunction, Float64}(candidates[i][1], sum(abs.(target_f.(points) .- f.(points))) / (N+1)) # MAE
-        catch _
-            candidates[i] = Pair{CandidateFunction, Float64}(candidates[i][1], Inf)
-        end
+        # catch _
+            # candidates[i] = Pair{CandidateFunction, Float64}(candidates[i][1], Inf)
+        # end
     end
 end
 
