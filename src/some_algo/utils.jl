@@ -1,3 +1,17 @@
+"""
+    Generates callable for every candidate function without a callable in the candidates pair array.
+"""
+function generate_callables!(candidates::Vector{Pair{CandidateFunction, Float64}})
+    for (cf, _) in candidates
+        if isnothing(cf.callable)
+            def = cf.fdecl
+            cf.callable = @RuntimeGeneratedFunction(def)
+        end
+    end
+
+    nothing
+end
+
 function check_expr_type(e::Expr, t::Symbol)
     if e.head != t
         error("expected expression of type :" * string(t) * " but :" * string(e.head) * " was given")

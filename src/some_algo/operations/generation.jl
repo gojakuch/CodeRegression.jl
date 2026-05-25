@@ -44,7 +44,7 @@ function generate_op!(all_exprs::Dict{DataType, ConstsAndExprs}, algparams::Algo
     for (rtype, ops) in all_ops # generate some expressions for each available type
         isempty(ops) && continue # skip empty
         
-        op_descr = rand(ops)
+        op_descr = rand(ops)  # there could be some bias, because we use only one "random" function, that mb have some pattern
         op = op_descr.callee
         params = op_descr.params
 
