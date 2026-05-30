@@ -1,0 +1,6 @@
+The list of contributors, whose contributions in this codebase are hereby placed under the
+license, as specified in the repository's LICENSE file. 
+
+Krasnopolskyi Atell-Yehor
+Zarytskyi Petro
+Andriichuk Maksym
