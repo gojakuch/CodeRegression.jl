@@ -115,8 +115,15 @@ end
 CandidateFunction(fdecl::Expr, algparams_ref::AlgorithmParameters) = CandidateFunction(fdecl, algparams_ref, nothing)
 
 
+function MutationContext(cf::CandidateFunction)
+    MutationContext(generate_exprs(cf.algparams_ref), cf)
+end
+
+
 """
-    creates an `AlgorithmParameters` object and a `CandidateFunction` that wraps the initial function declaration, links the objects properly. returns an `AlgorithmParameters` object and a `CandidateFunction` object
+    creates an `AlgorithmParameters` object and a `CandidateFunction` that wraps 
+    the initial function declaration, links the objects properly. returns an 
+    `AlgorithmParameters` object and a `CandidateFunction` object
 """
 function init(_initial_fdecl::Expr, _f_return_type::DataType, _all_ops::Dict{DataType, Vector{AllowedOperationDescription}}, _expr_gen_depth::Int, _apply_mutate_to_pure_exprs::Bool, _apply_literal_optim::Bool, _literal_optim_iters::Int)
     algparams = AlgorithmParameters(
