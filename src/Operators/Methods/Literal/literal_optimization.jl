@@ -1,3 +1,12 @@
+import CodeRegression.Operators.Utils: CandidateFunction, get_body
+
+using RuntimeGeneratedFunctions
+
+import RuntimeGeneratedFunctions: RuntimeGeneratedFunction
+import CodeRegression.Operators.Utils: _cw_
+
+RuntimeGeneratedFunctions.init(@__MODULE__)
+
 """
     CandidateFunction with parametrised literals. Is produced by `swap_literals_with_params` and should only be created from there. 
 """

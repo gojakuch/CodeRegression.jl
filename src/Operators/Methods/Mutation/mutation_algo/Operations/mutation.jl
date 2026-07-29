@@ -1,10 +1,14 @@
 # this file describes the mutation visitor based on the general visitor template in "visitor_template.jl"
 
-function mutate_function!(::Expr, ::MutationContext)
+import CodeRegression.Operators.Utils: AllowedOperationDescription, CandidateFunction, general_type, make_const_wrap, get_body
+import CodeRegression.Operators.Methods.Generation.GP.Operators: generate_stmt
+import CodeRegression.Operators.Methods.Mutation.Core: __MutationContext
+
+function mutate_function!(::Expr, ::__MutationContext)
     throw("tried to modify a nested function decl. nested functions are not allowed")
 end
 
-function insertstmt!(arr, mc::MutationContext)
+function insertstmt!(arr, mc::__MutationContext)
     stmt = generate_stmt(mc.all_exprs, mc.f.algparams_ref)
 
     if length(arr) > 1
@@ -14,7 +18,7 @@ function insertstmt!(arr, mc::MutationContext)
     end
 end
 
-function mutate_block!(body::Expr, mc::MutationContext)
+function mutate_block!(body::Expr, mc::__MutationContext)
     # just add smth before the return (random line)
     r = rand()
     # body_args = get_body(new_f).args
@@ -42,7 +46,7 @@ function mutate_block!(body::Expr, mc::MutationContext)
     mutate!(body.args[ind], mc)
 end
 
-function mutate_if!(if_expr::Expr, mc::MutationContext)
+function mutate_if!(if_expr::Expr, mc::__MutationContext)
     # choose if we modify the body or cond
     # recursion here later
     r = rand()
@@ -70,10 +74,10 @@ end
 
     `ex` is supposed to be a pure expression (or a Symbol or value), and `dt` its type.
 """
-function mutate_pure_expression(ex, dt::DataType, mc::MutationContext)
+function mutate_pure_expression(ex, dt::DataType, mc::__MutationContext)
     gdt = general_type(dt)
     if !mc.f.algparams_ref.apply_mutate_to_pure_exprs || !(haskey(mc.f.algparams_ref._type_preserving_ops, gdt)) || isempty(mc.f.algparams_ref._type_preserving_ops[gdt])
-        # if apply_mutate_to_pure_exprs==false or there are no type-preserving operations for `gdt` return a random expression of this type (if possible)
+        # if apply_mutate_to_pure_exprs==false or there are no type-preserving Operators for `gdt` return a random expression of this type (if possible)
         if !(haskey(mc.all_exprs, gdt)) || isempty(mc.all_exprs[gdt])
             @warn "`mutate_pure_expression` could not mutate expression `"*string(ex)*"`, returning a copy."
             return deepcopy(ex)
@@ -153,22 +157,22 @@ function mutate_pure_expression(ex, dt::DataType, mc::MutationContext)
     return deepcopy(ex)
 end
 
-function mutate_assign!(assign_expr::Expr, mc::MutationContext)
+function mutate_assign!(assign_expr::Expr, mc::__MutationContext)
     # potential SR.jl integration here (optional)
 
     var = assign_expr.args[1] # TODO: add a possible lhs modification with proper types
     assign_expr.args[2] = mutate_pure_expression(assign_expr.args[2], mc.f.algparams_ref.f_arg_types[var], mc)
 end
 
-function mutate_return!(r::Expr, mc::MutationContext)
+function mutate_return!(r::Expr, mc::__MutationContext)
     r.args[1] = mutate_pure_expression(r.args[1], mc.f.algparams_ref.f_return_type, mc)
 end
 
-function mutate_call!(c::Expr, mc::MutationContext)
+function mutate_call!(c::Expr, mc::__MutationContext)
     @warn "cannot mutate calls yet" # TODO: implement this like in `mutate_pure_expression`
 end
 
-function mutate!(e::Expr, mc::MutationContext)
+function mutate!(e::Expr, mc::__MutationContext)
     dispatch = Dict(
         :function => mutate_function!,
         :block => mutate_block!,
@@ -190,6 +194,6 @@ end
 function mutate(cf::CandidateFunction)::CandidateFunction
     new_f = deepcopy(cf.fdecl)
     new_cf = CandidateFunction(new_f, cf.algparams_ref)
-    mutate!(get_body(new_f), MutationContext(new_cf))
+    mutate!(get_body(new_f), __MutationContext(new_cf))
     return new_cf
 end

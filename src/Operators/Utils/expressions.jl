@@ -1,14 +1,9 @@
-"""
-    TODO: discuss how to mark different 'classes' in one file
-    more specifically, how to visually border them
-"""
+using RuntimeGeneratedFunctions
 
-"""
-    struct ConstsAndExprs
-        consts::Vector{Expr}
-        exprs::Vector{Any}
-    end
-"""
+import RuntimeGeneratedFunctions: RuntimeGeneratedFunction
+
+RuntimeGeneratedFunctions.init(@__MODULE__)
+
 struct ConstsAndExprs
     consts::Vector{Expr}
     exprs::Vector{Any}
@@ -113,11 +108,6 @@ mutable struct CandidateFunction
 end
 
 CandidateFunction(fdecl::Expr, algparams_ref::AlgorithmParameters) = CandidateFunction(fdecl, algparams_ref, nothing)
-
-
-function MutationContext(cf::CandidateFunction)
-    MutationContext(generate_exprs(cf.algparams_ref), cf)
-end
 
 
 """

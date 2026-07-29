@@ -1,3 +1,5 @@
+import CodeRegression.Operators.Utils: AlgorithmParameters, ConstsAndExprs, general_type, make_const_wrap
+
 function generate_exprs(algparams::AlgorithmParameters)::Dict{DataType, ConstsAndExprs}
     arg_types = algparams.f_arg_types
     return_type = algparams.f_return_type

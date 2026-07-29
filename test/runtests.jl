@@ -356,7 +356,7 @@ end
     end
 
 
-    # this tests `mutate_pure_expression` for corner-case handling, but also tests expression generation and MutationContext creation along the way.
+    # this tests `mutate_pure_expression` for corner-case handling, but also tests expression generation and __MutationContext creation along the way.
     @testset "`mutate_pure_expression` test" begin
         mpe_test_seeds = (QUICK_TEST) ? (1:10) : (1:100)
 
@@ -420,27 +420,27 @@ end
             for seed in mpe_test_seeds
                 Random.seed!(seed)
 
-                res = CodeRegression.mutate_pure_expression(:(_cw_(123123.123123)), Number, CodeRegression.MutationContext(init_f))
+                res = CodeRegression.mutate_pure_expression(:(_cw_(123123.123123)), Number, CodeRegression.__MutationContext(init_f))
                 @test occursin("_cw_(123123.123123)", string(res))
 
-                res = CodeRegression.mutate_pure_expression(:(sampletext), Number, CodeRegression.MutationContext(init_f))
+                res = CodeRegression.mutate_pure_expression(:(sampletext), Number, CodeRegression.__MutationContext(init_f))
                 @test occursin("sampletext", string(res))
             end
         end
 
         @testset "`mutate_pure_expression` test (handling a type with no proper operations)" begin
             pure_ex = :(string(1))
-            res = CodeRegression.mutate_pure_expression(pure_ex, String, CodeRegression.MutationContext(init_f))
+            res = CodeRegression.mutate_pure_expression(pure_ex, String, CodeRegression.__MutationContext(init_f))
             @test string(pure_ex) == string(res) # shouldn't mutate, as there's no option to mutate Integers
 
-            res = CodeRegression.mutate_pure_expression(:("sampletext"), String, CodeRegression.MutationContext(init_f))
+            res = CodeRegression.mutate_pure_expression(:("sampletext"), String, CodeRegression.__MutationContext(init_f))
             @test occursin("sampletext", string(res)) # shouldn't mutate, as there's no option to mutate Strings
 
-            res = CodeRegression.mutate_pure_expression(:([1, 2]), Array{Int, 2}, CodeRegression.MutationContext(init_f))
+            res = CodeRegression.mutate_pure_expression(:([1, 2]), Array{Int, 2}, CodeRegression.__MutationContext(init_f))
             @test occursin("[1, 2]", string(res)) # shouldn't mutate, as the type is not listed
 
             pure_ex = :(abcdefg(0,1,2))
-            res = CodeRegression.mutate_pure_expression(pure_ex, DummyDataType_test, CodeRegression.MutationContext(init_f))
+            res = CodeRegression.mutate_pure_expression(pure_ex, DummyDataType_test, CodeRegression.__MutationContext(init_f))
             @test string(pure_ex) == string(res) # shouldn't mutate, as the type is not listed
         end
 
@@ -449,28 +449,28 @@ end
                 Random.seed!(seed)
 
                 pure_ex = :(_cw_(2.0) + _cw_(1.0))
-                res = CodeRegression.mutate_pure_expression(pure_ex, Number, CodeRegression.MutationContext(init_f))
+                res = CodeRegression.mutate_pure_expression(pure_ex, Number, CodeRegression.__MutationContext(init_f))
                 @test string(pure_ex) != string(res) # should change something
 
                 pure_ex = :(x + (y * z))
-                res = CodeRegression.mutate_pure_expression(pure_ex, Number, CodeRegression.MutationContext(init_f))
+                res = CodeRegression.mutate_pure_expression(pure_ex, Number, CodeRegression.__MutationContext(init_f))
                 @test string(pure_ex) != string(res) # should change something
 
                 pure_ex = :(-_cw_(1.0))
-                res = CodeRegression.mutate_pure_expression(pure_ex, Number, CodeRegression.MutationContext(init_f))
+                res = CodeRegression.mutate_pure_expression(pure_ex, Number, CodeRegression.__MutationContext(init_f))
                 @test string(pure_ex) != string(res) # should change something
 
                 pure_ex = :(f(_cw_(1.0), x+x, y))
-                res = CodeRegression.mutate_pure_expression(pure_ex, Number, CodeRegression.MutationContext(init_f))
+                res = CodeRegression.mutate_pure_expression(pure_ex, Number, CodeRegression.__MutationContext(init_f))
                 @test string(pure_ex) != string(res) # should change something
 
                 pure_ex = :(f_dummy2(_cw_(1.0), x+x, y))
-                res = CodeRegression.mutate_pure_expression(pure_ex, DummyDataType2_test, CodeRegression.MutationContext(init_f))
+                res = CodeRegression.mutate_pure_expression(pure_ex, DummyDataType2_test, CodeRegression.__MutationContext(init_f))
                 @test string(pure_ex) != string(res) # should change something
             end
 
             pure_ex = :(f_int(_cw_(1), _cw_(2), y))
-            res = CodeRegression.mutate_pure_expression(pure_ex, Number, CodeRegression.MutationContext(init_f))
+            res = CodeRegression.mutate_pure_expression(pure_ex, Number, CodeRegression.__MutationContext(init_f))
             # shouldn't throw errors
         end
 
@@ -490,10 +490,10 @@ end
             for seed in mpe_test_seeds
                 Random.seed!(seed)
 
-                res = CodeRegression.mutate_pure_expression(:(_cw_(123123.123123)), Number, CodeRegression.MutationContext(init_f))
+                res = CodeRegression.mutate_pure_expression(:(_cw_(123123.123123)), Number, CodeRegression.__MutationContext(init_f))
                 @test !occursin("_cw_(123123.123123)", string(res)) # with !
 
-                res = CodeRegression.mutate_pure_expression(:(sampletext), Number, CodeRegression.MutationContext(init_f))
+                res = CodeRegression.mutate_pure_expression(:(sampletext), Number, CodeRegression.__MutationContext(init_f))
                 @test !occursin("sampletext", string(res)) # with !
             end
         end
