@@ -1,5 +1,7 @@
 using Random
 
+import CodeRegression.Operators.Utils: CandidateFunction, check_expr_type, get_args, make_const_wrap
+
 function reproduce(cf1::CandidateFunction, cf2::CandidateFunction)::CandidateFunction
     body1 = deepcopy(get_body(cf1.fdecl))
     body2 = deepcopy(get_body(cf2.fdecl))
