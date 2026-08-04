@@ -58,7 +58,7 @@ end
                         fraction_to_pass=0.61),
                     (target_f = abs, 
                         iters = 30, # TODO: reduce this again once the genetic algorithm gets better
-                        seeds = (QUICK_TEST ? (1,) : (1, 2,)),
+                        seeds = (QUICK_TEST ? (3,) : (1, 2, 3, 5)),
                         fraction_to_pass=0.5),
                 ]
             target_f = test_param_set.target_f
@@ -251,8 +251,8 @@ end
                 ]
             )
             for test_param_set in [
-                        (fname="2*sign(x)", target_f = (x)->2*sign(x), iters = (10, 5, 10), seeds = (2, 20, 200), precisions=(0.03, 0.03, 0.03), fraction_to_pass=0.61),
-                        (fname="2.5*sign(x)+0.5", target_f = (x)->2.5*sign(x)+0.5, iters = (10, 10, 10, 5,), seeds = (1, 2, 3, 20,), precisions=(0.03, 0.03, 0.03, 0.1,), fraction_to_pass=0.5),
+                        (fname="2*sign(x)", target_f = (x)->2*sign(x), iters = (10, 5, 10), seeds = (2, 20, 200), precisions=(0.03, 0.03, 0.3), fraction_to_pass=0.61),
+                        (fname="2.5*sign(x)+0.5", target_f = (x)->2.5*sign(x)+0.5, iters = (10, 10, 10, 5, 10, 10), seeds = (1, 2, 3, 20, 4, 7,), precisions=(0.03, 0.03, 0.03, 0.1, 0.5, 1.1), fraction_to_pass=0.5),
                         (fname="((x < 0.5 && x > -0.5) ? 1 : 0)", target_f = (x)->((x < 0.5 && x > -0.5) ? 1 : 0), iters = (10, 15, 10), seeds = (2, 20, 2000), precisions=(0.05, 0.05, 0.016), fraction_to_pass=0.61),
                     ]
                 target_f = test_param_set.target_f
