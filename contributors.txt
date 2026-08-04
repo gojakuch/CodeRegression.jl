@@ -4,3 +4,4 @@ license, as specified in the repository's LICENSE file.
 Krasnopolskyi Atell-Yehor
 Zarytskyi Petro
 Andriichuk Maksym
+Mykola Ishchenko
