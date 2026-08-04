@@ -1,4 +1,4 @@
-# this file describes a visitor based on the general visitor template in "visitor_template.jl"
+# this file describes a general visitor template
 
 Data = Vector{Any} # replace this with your propagated data type
 
