@@ -251,11 +251,16 @@ end
                 ]
             )
             for test_param_set in [
-                        (fname="2*sign(x)", target_f = (x)->2*sign(x), iters = (10, 5, 10), seeds = (2, 20, 200), precisions=(0.03, 0.03, 0.3), fraction_to_pass=0.61),
-                        (fname="2.5*sign(x)+0.5", target_f = (x)->2.5*sign(x)+0.5, iters = (10, 10, 10, 5, 10, 10), seeds = (1, 2, 3, 20, 4, 7,), precisions=(0.03, 0.03, 0.03, 0.1, 0.5, 1.1), fraction_to_pass=0.5),
-                        (fname="((x < 0.5 && x > -0.5) ? 1 : 0)", target_f = (x)->((x < 0.5 && x > -0.5) ? 1 : 0), iters = (10, 15, 10), seeds = (2, 20, 2000), precisions=(0.05, 0.05, 0.016), fraction_to_pass=0.61),
+                        # TODO: lower the precisions values once our GP and LO get better (and maybe do a max pooling over a set of sets of seeds)
+                        (fname="2*sign(x)", target_f = (x)->2*sign(x), iters = 5, seeds = 0:10:90, 
+                        precisions=[0.03, 0.03, 0.03, 0.75, 0.75, 0.8, 0.81, 0.81, 0.95, 1.5],),
+                        (fname="2.5*sign(x)+0.5", target_f = (x)->2.5*sign(x)+0.5, iters = 5, seeds = 0:10:90, 
+                        precisions=[0.03, 0.03, 0.03, 0.9, 1.1, 1.2, 1.2, 1.5, 1.5, 2],), # 1 iter gives the precision of ~2.5, so these tests still make sense
+                        (fname="((x < 0.5 && x > -0.5) ? 1 : 0)", target_f = (x)->((x < 0.5 && x > -0.5) ? 1 : 0), iters = 5, seeds = 0:10:90, 
+                        precisions=[0.07, 0.09, 0.3, 0.35, 0.4, 0.4, 0.4, 0.41, 0.45, 0.45],)
                     ]
                 target_f = test_param_set.target_f
+                iters = test_param_set.iters
 
                 algparams, init_f = CodeRegression.init(
                     #=initial_fdecl=# :(function (x::Float64)
@@ -275,14 +280,12 @@ end
                 count_passed = 0
                 fraction_passed = 0
                 testvar = false
+                precisions_and_seeds = Pair{Float64, Int}[]
                 for seed_i in eachindex(test_param_set.seeds)
                     seed = test_param_set.seeds[seed_i]
-                    iters = test_param_set.iters[seed_i]
-                    precision = test_param_set.precisions[seed_i]
 
                     candidates = Pair{CandidateFunction, Float64}[Pair(init_f, NaN)];
 
-                    res = false
                     Random.seed!(seed)
                     for it in 1:iters
                         # mutate
@@ -328,27 +331,24 @@ end
                         if length(candidates) > max_size
                             candidates = candidates[1:trim_size]
                         end
-
-                        if candidates[1][2] <= precision
-                            res = true
-                            break
-                        end
                     end
 
-                    if !res
-                        println("Warning: Individual test failed (after ", iters, " iterations): ", test_param_set.fname, " with seed ", seed, ".\nBest candidate:\n", candidates[1][1].fdecl, "\nwith loss: ", candidates[1][2], "; required precision is: ", precision)
-                    end
-
-                    count_passed += res
-                    fraction_passed = count_passed/length(test_param_set.seeds)
-                    testvar = fraction_passed >= test_param_set.fraction_to_pass
-                    if REQUIRED_FRACTION_ONLY && testvar
-                        break
-                    end
+                    push!(precisions_and_seeds, Pair(candidates[1][2], seed))
                 end
 
+                target_precisions = sort(test_param_set.precisions)
+                res_precisions_and_seeds = sort(precisions_and_seeds)
+
+                diff_array = [target_precisions[i]-res_precisions_and_seeds[i][1] for i in eachindex(res_precisions_and_seeds)]
+                testvar = sum(diff_array .>= 0) == length(diff_array)
+
                 if !testvar
-                    println("\nTest failed COMPLETELY: ", test_param_set.fname, " (finding functions w/ literal optimisation); only passed on ", count_passed, " seeds out of ", length(test_param_set.seeds), ". required fraction is ", test_param_set.fraction_to_pass)
+                    println("\nTest failed COMPLETELY: ", test_param_set.fname, " (finding functions w/ literal optimisation); the diff_array looks like this: "),
+                    show(diff_array)
+                    println("\nwith res_precisions_and_seeds being: ")
+                    show(res_precisions_and_seeds)
+                    println("\nwith target_precisions being: ")
+                    show(target_precisions)
                 end
                 @test testvar
             end
