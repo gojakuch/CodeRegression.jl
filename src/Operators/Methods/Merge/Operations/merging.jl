@@ -122,3 +122,137 @@ function reproduce(cf1::CandidateFunction, cf2::CandidateFunction)::CandidateFun
 
     return CandidateFunction(new_function_decl, cf1.algparams_ref)
 end
+
+function myers(A, B)
+    N, M = length(A), length(B)
+    V = Dict(1 => 0) # Base diagonal setup
+    trace = Vector{Dict{Int, Int}}()
+    
+    for D in 0:(N + M)
+        for k in -D:2:D
+            # Select the optimal path based on furthest reaching x
+            if k == -D || (k != D && get(V, k - 1, -1) < get(V, k + 1, -1))
+                x = get(V, k + 1, -1)
+            else
+                x = get(V, k - 1, -1) + 1
+            end
+            y = x - k
+            
+            # Follow any diagonal matching "snakes"
+            while x < N && y < M && A[x + 1] == B[y + 1]
+                x += 1; y += 1
+            end
+            V[k] = x
+            
+            # Stop the moment we consume both vectors entirely
+            if x >= N && y >= M
+                push!(trace, copy(V)) # Save this final winning state
+                return backtrack(trace, A, B, D) # Pass D explicitly!
+            end
+        end
+        push!(trace, copy(V)) # Save the state at the end of edit step D
+    end
+end
+
+function backtrack(trace, A, B, total_D)
+    x, y = length(A), length(B)
+    path = []
+    
+    # Work backwards exactly from total_D down to 1
+    for d in total_D:-1:1
+        V = trace[d+1]      # State after d edits
+        prev_V = trace[d]   # State after d-1 edits
+        k = x - y
+        
+        # Determine if we arrived here via an insert (k+1) or delete (k-1)
+        if k == -d || (k != d && get(prev_V, k - 1, -1) < get(prev_V, k + 1, -1))
+            k_prev = k + 1
+            op = :insert
+        else
+            k_prev = k - 1
+            op = :delete
+        end
+        
+        x_prev = get(prev_V, k_prev, 0)
+        y_prev = x_prev - k_prev
+        
+        # Pinpoint exactly where the diagonal snake started for this step
+        if op == :insert
+            x_start, y_start = x_prev, y_prev + 1
+        else
+            x_start, y_start = x_prev + 1, y_prev
+        end
+        
+        # 1. Rewind the matching elements of the snake
+        while x > x_start && y > y_start
+            pushfirst!(path, :match)
+            x -= 1; y -= 1
+        end
+        
+        # 2. Rewind the edit operation itself
+        pushfirst!(path, op)
+        x, y = x_prev, y_prev
+    end
+    
+    # 3. Handle any leftover matching elements before the very first edit
+    while x > 0 && y > 0
+        pushfirst!(path, :match)
+        x -= 1; y -= 1
+    end
+    
+    return path
+end
+
+function crossover(cf1::CandidateFunction, cf2::CandidateFunction)::CandidateFunction
+    body1 = deepcopy(get_body(cf1.fdecl))
+    body2 = deepcopy(get_body(cf2.fdecl))
+
+    new_function_decl = copy(cf1.fdecl)
+    new_function_decl.args[2] = crossover(body1, body2)
+    return CandidateFunction(new_function_decl, cf1.algparams_ref)
+end
+
+function crossover(e1::Expr, e2::Expr)::Expr
+    if e1.head != e2.head
+        return rand() > 0.5 ? e1 : e2
+    end
+
+    if e1.head == (:call) && e1.args[1] == e2.args[1]
+        res = copy(e1) # Might be unnecessary copy
+        for i in 2:length(e1.args)
+            res.args[i] = crossover(e1.args[i], e2.args[i])
+        end
+        return res
+    end
+
+    if e1.head == (:block)
+        res = Expr(:block)
+        matching = myers(e1.args, e2.args)
+        idx1 = 0
+        idx2 = 0
+        for m in matching
+            if m == :match
+                push!(res.args, crossover(e1.args[idx1], e2.args[idx2]))
+                idx1 += 1
+                idx2 += 1
+            elseif m == :insert
+
+                idx2 += 1
+            else # m == :delete
+                
+                idx1 += 1
+            end
+        end
+    end
+
+    if is_stmt(e1)
+        res = copy(e1) # Might be unnecessary copy
+        for i in eachindex(e1.args)
+            res.args[i] = crossover(e1.args[i], e2.args[i])
+        end
+        return res
+    end
+
+    return rand() > 0.5 ? e1 : e2
+end
+

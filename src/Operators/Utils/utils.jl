@@ -19,6 +19,20 @@ function check_expr_type(e::Expr, t::Symbol)
 end
 
 """
+    returns true if e is of stmt type
+"""
+function is_stmt(e::Expr)::Bool
+    t = e.head
+    t == (:if) || t == (:block) || t == (:for) || t == (:while) || t == (:return) || t == :(=) # Only the necessary
+end
+
+"""
+"""
+function get_stmt_block(e::Expr)::Expr
+    
+end
+
+"""
     returns the body of a function declaration
 """
 function get_body(f::Expr) 
