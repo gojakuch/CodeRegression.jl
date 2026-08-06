@@ -1,6 +1,6 @@
 using Random
 
-import CodeRegression.Operators.Utils: CandidateFunction, check_expr_type, get_args, make_const_wrap
+import CodeRegression.Operators.Utils: CandidateFunction, check_expr_type, get_args, make_const_wrap, is_stmt, get_body
 
 function reproduce(cf1::CandidateFunction, cf2::CandidateFunction)::CandidateFunction
     body1 = deepcopy(get_body(cf1.fdecl))
@@ -124,8 +124,15 @@ function reproduce(cf1::CandidateFunction, cf2::CandidateFunction)::CandidateFun
 end
 
 function myers(A, B)
+    # :match: An element in A aligns/matches an element in B.
+    # :delete: An element exists in A but has no matching alignment in B (removed from A).
+    # :insert: An element exists in B but has no matching alignment in A (added from B).
+
+    is_equivalent(a::Expr, b::Expr) = a.head == b.head
+    is_equivalent(a, b) = a == b
+
     N, M = length(A), length(B)
-    V = Dict(1 => 0) # Base diagonal setup
+    V = Dict(1 => 0)
     trace = Vector{Dict{Int, Int}}()
     
     for D in 0:(N + M)
@@ -138,30 +145,32 @@ function myers(A, B)
             end
             y = x - k
             
-            # Follow any diagonal matching "snakes"
-            while x < N && y < M && A[x + 1] == B[y + 1]
+            # Match
+            while x < N && y < M && is_equivalent(A[x + 1], B[y + 1])
                 x += 1; y += 1
             end
             V[k] = x
             
             # Stop the moment we consume both vectors entirely
             if x >= N && y >= M
-                push!(trace, copy(V)) # Save this final winning state
-                return backtrack(trace, A, B, D) # Pass D explicitly!
+                push!(trace, copy(V))
+                return backtrack(trace, A, B, D)
             end
         end
-        push!(trace, copy(V)) # Save the state at the end of edit step D
+        push!(trace, copy(V))
     end
+
+    return Symbol[]
 end
 
 function backtrack(trace, A, B, total_D)
     x, y = length(A), length(B)
-    path = []
+    path = Symbol[]
     
     # Work backwards exactly from total_D down to 1
     for d in total_D:-1:1
-        V = trace[d+1]      # State after d edits
-        prev_V = trace[d]   # State after d-1 edits
+        V = trace[d+1]
+        prev_V = trace[d]
         k = x - y
         
         # Determine if we arrived here via an insert (k+1) or delete (k-1)
@@ -203,6 +212,9 @@ function backtrack(trace, A, B, total_D)
     return path
 end
 
+# Leaf node fallback (symbols, literals, numbers)
+crossover(a, b) = rand() > 0.5 ? deepcopy(a) : deepcopy(b) # FIXME: Might be unnecessary copy
+
 function crossover(cf1::CandidateFunction, cf2::CandidateFunction)::CandidateFunction
     body1 = deepcopy(get_body(cf1.fdecl))
     body2 = deepcopy(get_body(cf2.fdecl))
@@ -214,11 +226,11 @@ end
 
 function crossover(e1::Expr, e2::Expr)::Expr
     if e1.head != e2.head
-        return rand() > 0.5 ? e1 : e2
+        return rand() > 0.5 ? e1 : e2 # FIXME: or do we need to copy here??
     end
 
-    if e1.head == (:call) && e1.args[1] == e2.args[1]
-        res = copy(e1) # Might be unnecessary copy
+    if e1.head == (:call) && e1.args[1] == e2.args[1] && length(e1.args) == length(e2.args) # a call to the same function with the same number of arguments
+        res = copy(e1) # FIXME: Might be unnecessary copy
         for i in 2:length(e1.args)
             res.args[i] = crossover(e1.args[i], e2.args[i])
         end
@@ -228,31 +240,38 @@ function crossover(e1::Expr, e2::Expr)::Expr
     if e1.head == (:block)
         res = Expr(:block)
         matching = myers(e1.args, e2.args)
-        idx1 = 0
-        idx2 = 0
+        idx1 = 1
+        idx2 = 1
         for m in matching
             if m == :match
                 push!(res.args, crossover(e1.args[idx1], e2.args[idx2]))
                 idx1 += 1
                 idx2 += 1
             elseif m == :insert
-
+                # TODO: currently we just skip the unmatched here but maybe we should decide at random if we include this part or not
                 idx2 += 1
             else # m == :delete
-                
+                # TODO: currently we just skip the unmatched here but maybe we should decide at random if we include this part or not
                 idx1 += 1
             end
         end
     end
 
+    if e1.head == (:if) # can have different number of blocks (if there is an `else`)
+        if length(e1.args) > length(e2.args)
+            (e1, e2) = (e2, e1)
+        end
+    end
+
+    # other statements must already have the same number of arguments and be of the same type
     if is_stmt(e1)
-        res = copy(e1) # Might be unnecessary copy
+        res = copy(e1) # FIXME: Might be unnecessary copy
         for i in eachindex(e1.args)
             res.args[i] = crossover(e1.args[i], e2.args[i])
         end
         return res
     end
 
-    return rand() > 0.5 ? e1 : e2
+    return rand() > 0.5 ? e1 : e2 # FIXME: or do we need to copy here??
 end
 
