@@ -159,6 +159,6 @@ function crossover(e1::Expr, e2::Expr)::Expr
         return res
     end
 
-    return rand() > 0.5 ? deepcopy(a) : deepcopy(b)
+    return rand() > 0.5 ? deepcopy(e1) : deepcopy(e2) 
 end
 

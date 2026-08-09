@@ -73,10 +73,10 @@ import .Operators.Utils: _cw_, make_const_wrap
 import .Operators.Methods.Generation.GP.Operators: generate_exprs, generate_op!, generate_stmt, generate_assignment, generate_return, generate_block, generate_if
 
 import .Operators.Methods.Literal.Operations: ParamLiteralCandidateFunction, swap_literals_with_params, optimize_literals!, find_literals
-import .Operators.Methods.Merge.Operations: reproduce
+import .Operators.Methods.Merge.Operations: crossover
 import .Operators.Methods.Mutation.MutationAlgo.Operators: mutate, mutate_pure_expression
 import .Operators.Methods.Mutation.Core: __MutationContext
 
-export mutate, reproduce, _cw_, CandidateFunction, AlgorithmParameters, AllowedOperationDescription, init, swap_literals_with_params, optimize_literals!, generate_callables!, generate_exprs, generate_op!, generate_stmt, generate_assignment, generate_return, generate_block, generate_if, ConstsAndExprs, make_const_wrap, find_literals, ParamLiteralCandidateFunction, mutate_pure_expression
+export mutate, crossover, _cw_, CandidateFunction, AlgorithmParameters, AllowedOperationDescription, init, swap_literals_with_params, optimize_literals!, generate_callables!, generate_exprs, generate_op!, generate_stmt, generate_assignment, generate_return, generate_block, generate_if, ConstsAndExprs, make_const_wrap, find_literals, ParamLiteralCandidateFunction, mutate_pure_expression
 
 end
