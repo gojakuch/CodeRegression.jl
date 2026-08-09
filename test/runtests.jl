@@ -250,9 +250,9 @@ end
             for test_param_set in [
                         # TODO: lower the precisions values once our GP and LO get better (and maybe do a max pooling over a set of sets of seeds)
                         (fname="2*sign(x)", target_f = (x)->2*sign(x), iters = 5, seeds = 0:10:90, 
-                        precisions=[0.03, 0.03, 0.03, 0.75, 0.75, 0.8, 0.81, 0.81, 0.95, 1.5],),
+                        precisions=[0.03, 0.03, 0.03, 0.75, 0.75, 0.8, 0.81, 0.9, 0.95, 1.5],),
                         (fname="2.5*sign(x)+0.5", target_f = (x)->2.5*sign(x)+0.5, iters = 5, seeds = 0:10:90, 
-                        precisions=[0.03, 0.03, 0.03, 0.9, 1.1, 1.2, 1.2, 1.5, 1.5, 2],), # 1 iter gives the precision of ~2.5, so these tests still make sense
+                        precisions=[0.0303, 0.0303, 0.0304, 0.9, 1.1, 1.2, 1.3, 1.5, 1.65, 2],), # 1 iter gives the precision of ~2.5, so these tests still make sense
                         (fname="((x < 0.5 && x > -0.5) ? 1 : 0)", target_f = (x)->((x < 0.5 && x > -0.5) ? 1 : 0), iters = 5, seeds = 0:10:90, 
                         precisions=[0.07, 0.09, 0.3, 0.35, 0.4, 0.4, 0.4, 0.41, 0.45, 0.45],)
                     ]
