@@ -1,9 +1,5 @@
 # this file describes the mutation visitor based on the general visitor template in "visitor_template.jl"
 
-import CodeRegression.Operators.Utils: AllowedOperationDescription, CandidateFunction, general_type, make_const_wrap, get_body
-import CodeRegression.Operators.Methods.Generation.GP.Operators: generate_stmt
-import CodeRegression.Operators.Methods.Mutation.Core: __MutationContext
-
 function mutate_function!(::Expr, ::__MutationContext)
     throw("tried to modify a nested function decl. nested functions are not allowed")
 end
@@ -77,7 +73,7 @@ end
 function mutate_pure_expression(ex, dt::DataType, mc::__MutationContext)
     gdt = general_type(dt)
     if !mc.f.algparams_ref.apply_mutate_to_pure_exprs || !(haskey(mc.f.algparams_ref._type_preserving_ops, gdt)) || isempty(mc.f.algparams_ref._type_preserving_ops[gdt])
-        # if apply_mutate_to_pure_exprs==false or there are no type-preserving Operators for `gdt` return a random expression of this type (if possible)
+        # if apply_mutate_to_pure_exprs==false or there are no type-preserving operators for `gdt` return a random expression of this type (if possible)
         if !(haskey(mc.all_exprs, gdt)) || isempty(mc.all_exprs[gdt])
             @warn "`mutate_pure_expression` could not mutate expression `"*string(ex)*"`, returning a copy."
             return deepcopy(ex)

@@ -1,7 +1,5 @@
 using Random
 
-import CodeRegression.Operators.Utils: CandidateFunction, check_expr_type, get_args, make_const_wrap, is_stmt, get_body
-
 function myers(A, B)
     # :match: An element in A aligns/matches an element in B.
     # :delete: An element exists in A but has no matching alignment in B (removed from A).

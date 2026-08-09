@@ -1,82 +1,103 @@
 module CodeRegression
+    using Random
+    using RuntimeGeneratedFunctions
 
-using Random
-using RuntimeGeneratedFunctions
+    RuntimeGeneratedFunctions.init(@__MODULE__)
 
-RuntimeGeneratedFunctions.init(@__MODULE__)
-
-module Operators
     module Utils
-        include("Operators/Utils/expressions.jl")
-        include("Operators/Utils/utils.jl")
-        include("Operators/Utils/visitor_template.jl")
+        include("Utils/expressions.jl")
+        export ConstsAndExprs, AllowedOperationDescription, AlgorithmParameters, CandidateFunction, init
+
+        include("Utils/utils.jl")
+        export generate_callables!, check_expr_type, is_stmt, get_body, get_signature, get_symbol_type_pair, get_args, get_arg_types, general_type, get_return_type, _cw_, make_const_wrap
     end
+    using .Utils
+    # TODO: move these from Utils, they are important and exported, they don't belong here
+    export AllowedOperationDescription, AlgorithmParameters, CandidateFunction, init, _cw_, make_const_wrap, generate_callables!
 
-    module Methods
-        module Generation
+    module Stages
+        module Literals
             module Core
+                using CodeRegression.Utils
+                include("Stages/Literals/Core/literal_visitor.jl")
 
+                export find_literals, find_literals!
             end
+            using .Core
 
-            module Operations
+            # actual algorithms
+            module GradientBased
+                using ..Core
+                using CodeRegression.Utils
+                include("Stages/Literals/GradientBased/literal_optimization.jl")
 
+                export ParamLiteralCandidateFunction, swap_literals_with_params, optimize_literals! 
             end
+            using .GradientBased
 
-            module GP
-                module Operators
-                    include("Operators/Methods/Generation/GP/operations/generate_expressions.jl")
-                end
-            end
+            # TODO: make it export a general `optimize_literals!` only, so that each algorithm just reimplements a method of it
+            export ParamLiteralCandidateFunction, swap_literals_with_params, optimize_literals! 
         end
+        using .Literals
+        # TODO: make it export a general `optimize_literals!` only, so that each algorithm just reimplements a method of it
+        export ParamLiteralCandidateFunction, swap_literals_with_params, optimize_literals! 
 
-        module Literal
+        module Crossover
             module Core
-                
+                using CodeRegression.Utils
             end
+            using .Core
 
-            module Operations
-                include("Operators/Methods/Literal/Operations/literal_optimization.jl")
-                include("Operators/Methods/Literal/Operations/literal_visitor.jl")
+            # actual algorithms
+            module SimpleMyers
+                using ..Core
+                using CodeRegression.Utils
+                include("Stages/Crossover/SimpleMyers/crossover.jl")
+
+                export crossover
             end
+            using .SimpleMyers
+
+            export crossover
         end
-
-        module Merge
-            module Core
-                
-            end
-
-            module Operations
-                include("Operators/Methods/Merge/Operations/merging.jl")
-            end
-        end
+        using .Crossover
+        export crossover
 
         module Mutation
             module Core
-                include("Operators/Methods/Mutation/core/mutation_core.jl")
-            end
+                using CodeRegression.Utils
+                module Generation
+                    using CodeRegression.Utils
+                    include("Stages/Mutation/Core/Generation/generate_expressions.jl")
 
-            module MutationAlgo
-                module Operators
-                    include("Operators/Methods/Mutation/mutation_algo/operations/mutation.jl")
+                    export generate_exprs, generate_stmt
                 end
+                using .Generation
+
+                include("Stages/Mutation/Core/mutation_core.jl")
+
+                export __MutationContext, generate_stmt # only this
             end
+            using .Core
+
+            # actual algorithms
+            module Naive
+                using ..Core
+                using CodeRegression.Utils
+                include("Stages/Mutation/Naive/mutation.jl")
+
+                export mutate, mutate!
+            end
+            using .Naive
+            export mutate, mutate!
         end
+        using .Mutation
+        export mutate, mutate!
     end
-end
+    using .Stages
+    export swap_literals_with_params, optimize_literals!, crossover, mutate, mutate!
 
-module Pipelines
-    include("Pipelines/instance1.jl")
-end
-
-import .Operators.Utils: AllowedOperationDescription, AlgorithmParameters, CandidateFunction, ConstsAndExprs, _cw_, make_const_wrap, init, generate_callables!, check_expr_type, get_body, get_signature, get_symbol_type_pair, get_args, get_arg_types, general_type, get_return_type
-import .Operators.Utils: _cw_, make_const_wrap
-import .Operators.Methods.Generation.GP.Operators: generate_exprs, generate_op!, generate_stmt, generate_assignment, generate_return, generate_block, generate_if
-
-import .Operators.Methods.Literal.Operations: ParamLiteralCandidateFunction, swap_literals_with_params, optimize_literals!, find_literals
-import .Operators.Methods.Merge.Operations: crossover
-import .Operators.Methods.Mutation.MutationAlgo.Operators: mutate, mutate_pure_expression
-import .Operators.Methods.Mutation.Core: __MutationContext
-
-export mutate, crossover, _cw_, CandidateFunction, AlgorithmParameters, AllowedOperationDescription, init, swap_literals_with_params, optimize_literals!, generate_callables!, generate_exprs, generate_op!, generate_stmt, generate_assignment, generate_return, generate_block, generate_if, ConstsAndExprs, make_const_wrap, find_literals, ParamLiteralCandidateFunction, mutate_pure_expression
-
+    module Pipelines
+        include("Pipelines/instance1.jl") # TODO
+    end
 end
