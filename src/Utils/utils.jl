@@ -27,12 +27,6 @@ function is_stmt(e::Expr)::Bool
 end
 
 """
-"""
-function get_stmt_block(e::Expr)::Expr
-    
-end
-
-"""
     returns the body of a function declaration
 """
 function get_body(f::Expr) 

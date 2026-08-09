@@ -1,6 +1,3 @@
-import CodeRegression.Operators.Utils: CandidateFunction, ConstsAndExprs
-import CodeRegression.Operators.Methods.Generation.GP.Operators: generate_exprs
-
 struct __MutationContext
     all_exprs::Dict{DataType, ConstsAndExprs}
     f::CandidateFunction
