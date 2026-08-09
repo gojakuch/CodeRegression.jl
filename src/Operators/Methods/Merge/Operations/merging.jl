@@ -213,11 +213,11 @@ function backtrack(trace, A, B, total_D)
 end
 
 # Leaf node fallback (symbols, literals, numbers)
-crossover(a, b) = rand() > 0.5 ? deepcopy(a) : deepcopy(b) # FIXME: Might be unnecessary copy
+crossover(a, b) = rand() > 0.5 ? deepcopy(a) : deepcopy(b)
 
 function crossover(cf1::CandidateFunction, cf2::CandidateFunction)::CandidateFunction
-    body1 = deepcopy(get_body(cf1.fdecl))
-    body2 = deepcopy(get_body(cf2.fdecl))
+    body1 = get_body(cf1.fdecl)
+    body2 = get_body(cf2.fdecl)
 
     new_function_decl = copy(cf1.fdecl)
     new_function_decl.args[2] = crossover(body1, body2)
@@ -226,11 +226,11 @@ end
 
 function crossover(e1::Expr, e2::Expr)::Expr
     if e1.head != e2.head
-        return rand() > 0.5 ? e1 : e2 # FIXME: or do we need to copy here??
+        return rand() > 0.5 ? deepcopy(e1) : deepcopy(e2) 
     end
 
     if e1.head == (:call) && e1.args[1] == e2.args[1] && length(e1.args) == length(e2.args) # a call to the same function with the same number of arguments
-        res = copy(e1) # FIXME: Might be unnecessary copy
+        res = deepcopy(e1)
         for i in 2:length(e1.args)
             res.args[i] = crossover(e1.args[i], e2.args[i])
         end
@@ -248,13 +248,21 @@ function crossover(e1::Expr, e2::Expr)::Expr
                 idx1 += 1
                 idx2 += 1
             elseif m == :insert
-                # TODO: currently we just skip the unmatched here but maybe we should decide at random if we include this part or not
+                # TODO: add an option to just skip the unmatched here
+                if rand() > 0.5
+                    push!(res.args, deepcopy(e2.args[idx2]))
+                end
                 idx2 += 1
             else # m == :delete
-                # TODO: currently we just skip the unmatched here but maybe we should decide at random if we include this part or not
+                # TODO: add an option to just skip the unmatched here
+                if rand() > 0.5
+                    push!(res.args, deepcopy(e1.args[idx1]))
+                end
                 idx1 += 1
             end
         end
+
+        return res
     end
 
     if e1.head == (:if) # can have different number of blocks (if there is an `else`)
@@ -265,13 +273,13 @@ function crossover(e1::Expr, e2::Expr)::Expr
 
     # other statements must already have the same number of arguments and be of the same type
     if is_stmt(e1)
-        res = copy(e1) # FIXME: Might be unnecessary copy
+        res = deepcopy(e1)
         for i in eachindex(e1.args)
             res.args[i] = crossover(e1.args[i], e2.args[i])
         end
         return res
     end
 
-    return rand() > 0.5 ? e1 : e2 # FIXME: or do we need to copy here??
+    return rand() > 0.5 ? deepcopy(a) : deepcopy(b)
 end
 
