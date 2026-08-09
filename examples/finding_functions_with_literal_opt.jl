@@ -37,7 +37,7 @@ par_types = Tuple(algparams.f_arg_types);
 candidates = Pair{CandidateFunction, Float64}[Pair(init_f, NaN)];
 max_size = 50;
 trim_size = 10;
-iters = 10;
+iters = 3;
 reproducing_pairs = 8;
 
 Random.seed!(3)
@@ -47,20 +47,16 @@ for it in 1:iters
     mutants = mutpair.(candidates)
     candidates = cat(candidates, mutants; dims=1)
 
-    # reproduce
+    # crossover
     # TODO: maybe figure out a good distribution for how to pick the reproducing pairs, for the best to be ahead??
     children = Pair{CandidateFunction, Float64}[]
     for rp in 1:reproducing_pairs
-        # shuffle!(candidates)
         if rp+1 > length(candidates)
             break
         end
         parent1 = candidates[rp]
         parent2 = rand(candidates[(rp+1):end])
-        try # FIXME: remove and check for errors??
-        push!(children, (reproduce(parent1[1], parent2[1]) => NaN64))
-        catch
-        end
+        push!(children, (crossover(parent1[1], parent2[1]) => NaN64))
     end
     candidates = cat(candidates, children; dims=1)
 

@@ -4,11 +4,7 @@ function objective!(target_f::Function, candidates::Vector{Pair{CandidateFunctio
 
     for i in eachindex(candidates)
         cf = candidates[i][1]
-        # try 
-            candidates[i] = Pair{CandidateFunction, Float64}(cf, sum(abs.(target_f.(points) .- cf.callable.(points))) / (N+1)) # MAE
-        # catch _
-            # candidates[i] = Pair{CandidateFunction, Float64}(candidates[i][1], Inf)
-        # end
+        candidates[i] = Pair{CandidateFunction, Float64}(cf, sum(abs.(target_f.(points) .- cf.callable.(points))) / (N+1)) # MAE
     end
 end
 
@@ -18,12 +14,8 @@ function objective_multivar!(target_f_vec::Function, candidates::Vector{Pair{Can
     for i in eachindex(candidates)
         cf = candidates[i][1]
         if isnan(candidates[i][2])
-            # try 
-                f_vec = (q)->(cf.callable(q...))
-                candidates[i] = Pair{CandidateFunction, Float64}(candidates[i][1], sum(abs.(target_f_vec.(points) .- f_vec.(points))) / (N+1)) # MAE
-            # catch _
-            #     candidates[i] = Pair{CandidateFunction, Float64}(candidates[i][1], Inf)
-            # end
+            f_vec = (q)->(cf.callable(q...))
+            candidates[i] = Pair{CandidateFunction, Float64}(candidates[i][1], sum(abs.(target_f_vec.(points) .- f_vec.(points))) / (N+1)) # MAE
         end
     end
 end

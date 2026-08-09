@@ -93,7 +93,7 @@ end
                     mutants = mutpair.(candidates)
                     candidates = cat(candidates, mutants; dims=1)
 
-                    # reproduce
+                    # crossover
                     children = Pair{CandidateFunction, Float64}[]
                     for rp in 1:reproducing_pairs
                         # shuffle!(candidates)
@@ -102,10 +102,7 @@ end
                         end
                         parent1 = candidates[rp]
                         parent2 = rand(candidates[(rp+1):end])
-                        try # FIXME: remove and check for errors??
-                        push!(children, (reproduce(parent1[1], parent2[1]) => NaN64))
-                        catch
-                        end
+                        push!(children, (crossover(parent1[1], parent2[1]) => NaN64))
                     end
                     candidates = cat(candidates, children; dims=1)
 
@@ -293,7 +290,7 @@ end
                         mutants = mutpair.(candidates)
                         candidates = cat(candidates, mutants; dims=1)
 
-                        # reproduce
+                        # crossover
                         children = Pair{CandidateFunction, Float64}[]
                         for rp in 1:reproducing_pairs
                             # shuffle!(candidates)
@@ -302,10 +299,7 @@ end
                             end
                             parent1 = candidates[rp]
                             parent2 = rand(candidates[(rp+1):end])
-                            try # FIXME: remove and check for errors??
-                            push!(children, (reproduce(parent1[1], parent2[1]) => NaN64))
-                            catch
-                            end
+                            push!(children, (crossover(parent1[1], parent2[1]) => NaN64))
                         end
                         candidates = cat(candidates, children; dims=1)
 
