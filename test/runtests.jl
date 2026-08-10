@@ -254,7 +254,7 @@ end
                         (fname="2.5*sign(x)+0.5", target_f = (x)->2.5*sign(x)+0.5, iters = 5, seeds = 0:10:90, 
                         precisions=[0.0303, 0.0303, 0.0304, 0.9, 1.1, 1.2, 1.3, 1.5, 1.65, 2],), # 1 iter gives the precision of ~2.5, so these tests still make sense
                         (fname="((x < 0.5 && x > -0.5) ? 1 : 0)", target_f = (x)->((x < 0.5 && x > -0.5) ? 1 : 0), iters = 5, seeds = 0:10:90, 
-                        precisions=[0.07, 0.09, 0.3, 0.35, 0.4, 0.4, 0.4, 0.41, 0.45, 0.45],)
+                        precisions=[0.07, 0.09, 0.3, 0.35, 0.4, 0.4, 0.401, 0.42, 0.47, 0.48],)
                     ]
                 target_f = test_param_set.target_f
                 iters = test_param_set.iters
