@@ -1,5 +1,15 @@
 import CodeRegression.Operators.Utils: AlgorithmParameters, ConstsAndExprs, general_type, make_const_wrap
 
+
+"""
+Generate typed constant and non-constant expressions from the configured operations.
+
+# Arguments
+- `algparams::AlgorithmParameters`: Generation configuration and function signature.
+
+# Returns
+- `Dict{DataType, ConstsAndExprs}`: Expressions grouped by generalized result type.
+"""
 function generate_exprs(algparams::AlgorithmParameters)::Dict{DataType, ConstsAndExprs}
     arg_types = algparams.f_arg_types
     return_type = algparams.f_return_type
@@ -40,6 +50,16 @@ function generate_exprs(algparams::AlgorithmParameters)::Dict{DataType, ConstsAn
     all_exprs
 end
 
+
+"""
+Generate one expression for each configured result type and append it to `all_exprs`.
+
+This function mutates `all_exprs` in place by sampling operations from `algparams.all_ops` and storing newly generated ASTs under their generalized return type.
+
+# Arguments
+- `all_exprs::Dict{DataType, ConstsAndExprs}`: Expression pool keyed by generalized result type. The dictionary is updated in place.
+- `algparams::AlgorithmParameters`: Search configuration that defines the available operations and the function signature.
+"""
 function generate_op!(all_exprs::Dict{DataType, ConstsAndExprs}, algparams::AlgorithmParameters)
     all_ops = algparams.all_ops
 
@@ -86,6 +106,19 @@ function generate_op!(all_exprs::Dict{DataType, ConstsAndExprs}, algparams::Algo
     end
 end
 
+
+"""
+Generate a random statement node from the expression pool.
+
+The produced statement is chosen from assignment, return, and conditional forms according to the available Boolean expressions and the current algorithm configuration.
+
+# Arguments
+- `all_exprs::Dict{DataType, ConstsAndExprs}`: Typed expression pool used to synthesize a statement.
+- `algparams::AlgorithmParameters`: Configuration that provides argument and return types.
+
+# Returns
+- `Expr`: An expression representing an assignment, return, or conditional statement.
+"""
 function generate_stmt(all_exprs::Dict{DataType, ConstsAndExprs}, algparams::AlgorithmParameters) # returns the statement
     r = rand()
     
@@ -104,6 +137,20 @@ function generate_stmt(all_exprs::Dict{DataType, ConstsAndExprs}, algparams::Alg
     generate_return(all_exprs, algparams)
 end
 
+
+"""
+Generate an assignment expression for a random argument of the target function.
+
+This helper samples an argument name from `algparams.f_arg_types` and assigns it an expression of the matching generalized type.
+
+# Arguments
+- `all_exprs::Dict{DataType, ConstsAndExprs}`: Typed expression pool containing candidate values for each argument type.
+- `algparams::AlgorithmParameters`: Function signature and type metadata used to choose an argument and compatible expression.
+
+# Returns
+- Either `Expr`: An assignment expression of the form `var = value` or  `Nothing`
+
+"""
 function generate_assignment(all_exprs::Dict{DataType, ConstsAndExprs}, algparams::AlgorithmParameters) # returns the statement
     arg_types = algparams.f_arg_types
 
@@ -120,6 +167,17 @@ function generate_assignment(all_exprs::Dict{DataType, ConstsAndExprs}, algparam
     )
 end
 
+
+"""
+Generate a return statement whose value matches the declared return type.
+
+# Arguments
+- `all_exprs::Dict{DataType, ConstsAndExprs}`: Expression pool containing generated values for each type.
+- `algparams::AlgorithmParameters`: Configuration defining the return type.
+
+# Returns
+- `Expr`: A `return` expression for a value compatible with the target return type.
+"""
 function generate_return(all_exprs::Dict{DataType, ConstsAndExprs}, algparams::AlgorithmParameters) # returns the statement
     return_type = algparams.f_return_type
 
@@ -132,6 +190,21 @@ function generate_return(all_exprs::Dict{DataType, ConstsAndExprs}, algparams::A
     return Expr(:return, deepcopy(rand(candidates)[1]))
 end
 
+
+"""
+    generate_block(all_exprs::Dict{DataType, ConstsAndExprs}, algparams::AlgorithmParameters) -> Expr
+
+Generate a block containing a statement list for a candidate function body.
+
+The block always starts with an assignment and then, with probability 1/2, appends a return statement.
+
+# Arguments
+- `all_exprs::Dict{DataType, ConstsAndExprs}`: Typed expression pool used to create statements.
+- `algparams::AlgorithmParameters`: Function signature and type information.
+
+# Returns
+- `Expr`: `:block` expression with one or two statements.
+"""
 function generate_block(all_exprs::Dict{DataType, ConstsAndExprs}, algparams::AlgorithmParameters) # returns the statement
     arg_types = algparams.f_arg_types
     return_type = algparams.f_return_type
@@ -143,6 +216,19 @@ function generate_block(all_exprs::Dict{DataType, ConstsAndExprs}, algparams::Al
     return Expr(:block, stmts...)
 end
 
+
+"""
+Generate an `if` expression using a Boolean condition and one or two generated blocks.
+
+This helper samples a condition from the Boolean expression pool and synthesizes one or two block bodies with `generate_block`.
+
+# Arguments
+- `all_exprs::Dict{DataType, ConstsAndExprs}`: Dictionary of typed expression pools, including Boolean expressions.
+- `algparams::AlgorithmParameters`: Configuration providing the function signature and type metadata.
+
+# Returns
+- `Expr`: An `if` expression built from a condition and generated block(s).
+"""
 function generate_if(all_exprs::Dict{DataType, ConstsAndExprs}, algparams::AlgorithmParameters) # returns the statement
     candidates_cond = all_exprs[Bool].exprs
     cond = deepcopy(rand(candidates_cond))

@@ -2,6 +2,18 @@ using Random
 
 import CodeRegression.Operators.Utils: CandidateFunction, check_expr_type, get_args, make_const_wrap
 
+"""
+Create a candidate by randomly combining the bodies of two candidate functions.
+
+The input candidates are not mutated; the returned declaration is built from deep copies of their bodies.
+
+# Arguments
+- `cf1::CandidateFunction`: First parent candidate.
+- `cf2::CandidateFunction`: Second parent candidate with a compatible function shape.
+
+# Returns
+- `CandidateFunction`: New candidate sharing the first parent's algorithm parameters.
+"""
 function reproduce(cf1::CandidateFunction, cf2::CandidateFunction)::CandidateFunction
     body1 = deepcopy(get_body(cf1.fdecl))
     body2 = deepcopy(get_body(cf2.fdecl))
@@ -38,7 +50,7 @@ function reproduce(cf1::CandidateFunction, cf2::CandidateFunction)::CandidateFun
         function append_expr_to_block(block::Expr, ex)::Expr
             h = block.head 
             if h == :block
-                 return Expr(:block, block.args..., ex)
+                return Expr(:block, block.args..., ex)
             elseif h == :if 
                 f = block # deepcopy(block) # we now call deepcopy all the time
                 i = 2 + (length(f.args) > 2 && rand() > 0.5) # decide if we append to the if or to the else
@@ -52,7 +64,7 @@ function reproduce(cf1::CandidateFunction, cf2::CandidateFunction)::CandidateFun
         function merge_blocks(block1::Expr, block2::Expr, arg)::Expr
             h = block1.head 
             if h == :block
-                 return random_body_merge(block1, block2, arg)
+                return random_body_merge(block1, block2, arg)
             elseif h == :if 
                 f = block1 # deepcopy(block1) # we now call deepcopy all the time
                 # TODO: add condition merging and smarter if merges generally. check if the conditions are similar, etc.

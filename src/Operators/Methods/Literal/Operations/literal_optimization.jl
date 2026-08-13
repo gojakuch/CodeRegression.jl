@@ -8,7 +8,15 @@ import CodeRegression.Operators.Utils: _cw_
 RuntimeGeneratedFunctions.init(@__MODULE__)
 
 """
-    CandidateFunction with parametrised literals. Is produced by `swap_literals_with_params` and should only be created from there. 
+Represent a candidate function whose wrapped literals have been replaced by parameters for optimization.
+
+# Fields
+- `cf::CandidateFunction`: Original candidate whose declaration is updated after optimization.
+- `param_fdecl::Expr`: Declaration with literal parameters appended to its signature.
+- `param_f::RuntimeGeneratedFunction`: Callable generated from `param_fdecl`.
+- `literals::Vector{Expr}`: Wrapped literal expressions in the parameterized declaration.
+- `values::Vector`: Current values assigned to those literals.
+- `new_params::Vector{Symbol}`: Parameter names corresponding to `literals` and `values`.
 """
 mutable struct ParamLiteralCandidateFunction
     cf::CandidateFunction # original candidate function (copy) TODO: do we need this to be a copy or just assume that the optimisation is reliable and will always improve the function?
@@ -20,6 +28,15 @@ mutable struct ParamLiteralCandidateFunction
 end
 
 
+"""
+Replace literal values within a candidate function's AST with parameter variables and compile a parameterized function.
+
+# Arguments
+- `cf::CandidateFunction`: The candidate function structure containing the target function declaration AST (`fdecl`).
+
+# Returns
+- `ParamLiteralCandidateFunction`
+"""
 function swap_literals_with_params(cf::CandidateFunction)::ParamLiteralCandidateFunction
     param_decl = deepcopy(cf.fdecl)
     literals = find_literals(param_decl)
@@ -38,8 +55,18 @@ function swap_literals_with_params(cf::CandidateFunction)::ParamLiteralCandidate
     ParamLiteralCandidateFunction(deepcopy(cf), param_decl, @RuntimeGeneratedFunction(param_decl), literals, values, new_params)
 end
 
+
 """
-    `loss::Function` should take a function of the same signature as generated and contained in `plcf.cf.fdecl` and produce a single non-negative numerical value that is larger for worse candidates.
+Optimize the parameterized literal values using finite-difference gradient descent.
+
+# Arguments
+- `plcf::ParamLiteralCandidateFunction`: Parameterized candidate to optimize.
+- `loss::Function`: Function that accepts a candidate callable and returns a non-negative loss.
+- `iters::Int`: Number of optimization iterations.
+- `alpha::Number`: Gradient-descent step size.
+
+# Returns
+- `Nothing`: The optimized candidate is stored in `plcf`.
 """
 function optimize_literals!(plcf::ParamLiteralCandidateFunction, loss::Function, iters::Int, alpha::Number)
     dx = 0.01

@@ -4,6 +4,13 @@ import RuntimeGeneratedFunctions: RuntimeGeneratedFunction
 
 RuntimeGeneratedFunctions.init(@__MODULE__)
 
+"""
+Store generated constant expressions separately from expressions that depend on values.
+
+# Fields
+- `consts::Vector{Expr}`: Expressions whose arguments are all constants
+- `exprs::Vector{Any}`: Expressions that contain variables or non-constant subexpressions
+"""
 struct ConstsAndExprs
     consts::Vector{Expr}
     exprs::Vector{Any}
@@ -13,21 +20,37 @@ Base.isempty(ce::ConstsAndExprs) = isempty(ce.consts) && isempty(ce.exprs)
 
 
 """
-    TODO
+Describe one parameter accepted by a generated operation.
+
+# Arguments
+- `type::DataType`: Required parameter type
+- `can_be_const::Bool`: Whether a generated argument may be a constant expression
 """
 struct _AllowedOperationDescriptionParameter
     type::DataType # FIXME: should generalise the type automatically in its constructor
     can_be_const::Bool
 end
 
+
 """
-    TODO
+Describe an operation that may be used during expression generation and mutation.
+
+# Arguments
+- `callee::Symbol`: Name of the operation to call.
+- `params`: Parameter descriptions, supplied as named tuples containing `type` and `can_be_const`.
+
+# Returns
+- `AllowedOperationDescription`: The normalized operation description.
 """
 struct AllowedOperationDescription
     callee::Symbol
     params::Vector{_AllowedOperationDescriptionParameter}
 end
 
+
+"""
+Construct an operation description from named tuples with `type` and `can_be_const` fields.
+"""
 function AllowedOperationDescription(callee::Symbol, params::Vector{NamedTuple})
     paramlist = _AllowedOperationDescriptionParameter[]
     for tup in params
@@ -38,7 +61,17 @@ end
 
 
 """
-    describes the search algorithm. an object of this type should be passed to all the mutation, merging, and generation operations.
+TODO
+Describe the search algorithm and the function signature used by generation, mutation, merging, and literal optimization.
+
+# Fields
+- `f_arg_types::NamedTuple`: Argument names and their declared types.
+- `f_return_type::DataType`: Declared return type.
+- `all_ops::Dict{DataType, Vector{AllowedOperationDescription}}`: Operations grouped by result type.
+- `expr_gen_depth::Int`: Number of expression-generation rounds.
+- `apply_mutate_to_pure_exprs::Bool`: Whether pure expressions may be recursively changed.
+- `apply_literal_optim::Bool`: Whether literal optimization is enabled by the pipeline.
+- `literal_optim_iters::Int`: Number of literal-optimization iterations.
 """
 struct AlgorithmParameters
     # problem setup details (function signature)
@@ -99,7 +132,12 @@ end
 
 
 """
-    `CandidateFunction` wraps a function declaration expression. 
+Wrap a function declaration expression and the algorithm configuration used to transform it.
+
+# Fields
+- `fdecl::Expr`: Julia function declaration represented as an expression.
+- `algparams_ref::AlgorithmParameters`: Configuration shared by candidates.
+- `callable::Union{RuntimeGeneratedFunction, Nothing}`: Generated callable, or `nothing` until compilation.
 """
 mutable struct CandidateFunction
     fdecl::Expr
@@ -111,9 +149,10 @@ CandidateFunction(fdecl::Expr, algparams_ref::AlgorithmParameters) = CandidateFu
 
 
 """
-    creates an `AlgorithmParameters` object and a `CandidateFunction` that wraps 
-    the initial function declaration, links the objects properly. returns an 
-    `AlgorithmParameters` object and a `CandidateFunction` object
+Create linked algorithm parameters and an initial candidate function.
+
+# Returns
+- `Tuple{AlgorithmParameters, CandidateFunction}`: The configuration and candidate sharing that configuration.
 """
 function init(_initial_fdecl::Expr, _f_return_type::DataType, _all_ops::Dict{DataType, Vector{AllowedOperationDescription}}, _expr_gen_depth::Int, _apply_mutate_to_pure_exprs::Bool, _apply_literal_optim::Bool, _literal_optim_iters::Int)
     algparams = AlgorithmParameters(
