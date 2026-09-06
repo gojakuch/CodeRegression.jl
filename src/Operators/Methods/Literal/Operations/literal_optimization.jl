@@ -65,7 +65,13 @@ function optimize_literals!(plcf::ParamLiteralCandidateFunction, loss::Function,
             end
         end
 
+        old_values = copy(plcf.values)
         plcf.values .-= alpha*grad
+        new_loss = loss(generate_f(plcf.values))
+        if new_loss > loss_at_p
+            plcf.values .= old_values
+            break
+        end
     end
 
     for i in eachindex(plcf.values)
