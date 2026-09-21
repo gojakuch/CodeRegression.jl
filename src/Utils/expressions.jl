@@ -61,7 +61,6 @@ end
 
 
 """
-TODO
 Describe the search algorithm and the function signature used by generation, mutation, merging, and literal optimization.
 
 # Fields
