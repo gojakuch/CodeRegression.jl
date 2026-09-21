@@ -2,7 +2,7 @@ import CodeRegression.Operators.Utils: CandidateFunction, ConstsAndExprs
 import CodeRegression.Operators.Methods.Generation.GP.Operators: generate_exprs
 
 """
-Hold generated expressions and the candidate used by the mutation visitors.
+Contains generated expressions and the candidate used by the mutation visitors.
 
 # Fields
 - `all_exprs::Dict{DataType, ConstsAndExprs}`: Typed expressions available to mutation.

@@ -3,7 +3,8 @@ using RuntimeGeneratedFunctions
 RuntimeGeneratedFunctions.init(@__MODULE__)
 
 """
-Represent a candidate function whose wrapped literals have been replaced by parameters for optimization.
+CandidateFunction with parametrised literals.
+Is produced by `swap_literals_with_params` and should only be created from there.
 
 # Fields
 - `cf::CandidateFunction`: Original candidate whose declaration is updated after optimization.
@@ -24,10 +25,13 @@ end
 
 
 """
-Replace literal values within a candidate function's AST with parameter variables and compile a parameterized function.
+Replace literal values within a candidate function's AST 
+with parameter variables and compile a parameterized function.
+This is the only way that objects of type `ParamLiteralCandidateFunction`
+should be created in order to be formed properly.
 
 # Arguments
-- `cf::CandidateFunction`: The candidate function structure containing the target function declaration AST (`fdecl`).
+- `cf::CandidateFunction`: Original candidate whose declaration is updated after optimization.
 
 # Returns
 - `ParamLiteralCandidateFunction`

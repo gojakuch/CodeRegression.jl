@@ -5,7 +5,7 @@ import CodeRegression.Operators.Utils: AlgorithmParameters, ConstsAndExprs, gene
 Generate typed constant and non-constant expressions from the configured operations.
 
 # Arguments
-- `algparams::AlgorithmParameters`: Generation configuration and function signature.
+- `algparams::AlgorithmParameters`: Expression pool containing generated values for each type.
 
 # Returns
 - `Dict{DataType, ConstsAndExprs}`: Expressions grouped by generalized result type.
@@ -57,8 +57,8 @@ Generate one expression for each configured result type and append it to `all_ex
 This function mutates `all_exprs` in place by sampling operations from `algparams.all_ops` and storing newly generated ASTs under their generalized return type.
 
 # Arguments
-- `all_exprs::Dict{DataType, ConstsAndExprs}`: Expression pool keyed by generalized result type. The dictionary is updated in place.
-- `algparams::AlgorithmParameters`: Search configuration that defines the available operations and the function signature.
+- `all_exprs::Dict{DataType, ConstsAndExprs}`: Dictionary of typed expression pools, including Boolean expressions.
+- `algparams::AlgorithmParameters`: Expression pool containing generated values for each type.
 """
 function generate_op!(all_exprs::Dict{DataType, ConstsAndExprs}, algparams::AlgorithmParameters)
     all_ops = algparams.all_ops
@@ -113,8 +113,8 @@ Generate a random statement node from the expression pool.
 The produced statement is chosen from assignment, return, and conditional forms according to the available Boolean expressions and the current algorithm configuration.
 
 # Arguments
-- `all_exprs::Dict{DataType, ConstsAndExprs}`: Typed expression pool used to synthesize a statement.
-- `algparams::AlgorithmParameters`: Configuration that provides argument and return types.
+- `all_exprs::Dict{DataType, ConstsAndExprs}`: Dictionary of typed expression pools, including Boolean expressions.
+- `algparams::AlgorithmParameters`: Expression pool containing generated values for each type.
 
 # Returns
 - `Expr`: An expression representing an assignment, return, or conditional statement.
@@ -144,8 +144,8 @@ Generate an assignment expression for a random argument of the target function.
 This helper samples an argument name from `algparams.f_arg_types` and assigns it an expression of the matching generalized type.
 
 # Arguments
-- `all_exprs::Dict{DataType, ConstsAndExprs}`: Typed expression pool containing candidate values for each argument type.
-- `algparams::AlgorithmParameters`: Function signature and type metadata used to choose an argument and compatible expression.
+- `all_exprs::Dict{DataType, ConstsAndExprs}`: Dictionary of typed expression pools, including Boolean expressions.
+- `algparams::AlgorithmParameters`: Expression pool containing generated values for each type.
 
 # Returns
 - Either `Expr`: An assignment expression of the form `var = value` or  `Nothing`
@@ -172,8 +172,8 @@ end
 Generate a return statement whose value matches the declared return type.
 
 # Arguments
-- `all_exprs::Dict{DataType, ConstsAndExprs}`: Expression pool containing generated values for each type.
-- `algparams::AlgorithmParameters`: Configuration defining the return type.
+- `all_exprs::Dict{DataType, ConstsAndExprs}`: Dictionary of typed expression pools, including Boolean expressions.
+- `algparams::AlgorithmParameters`: Expression pool containing generated values for each type.
 
 # Returns
 - `Expr`: A `return` expression for a value compatible with the target return type.
@@ -192,15 +192,13 @@ end
 
 
 """
-    generate_block(all_exprs::Dict{DataType, ConstsAndExprs}, algparams::AlgorithmParameters) -> Expr
-
 Generate a block containing a statement list for a candidate function body.
 
 The block always starts with an assignment and then, with probability 1/2, appends a return statement.
 
 # Arguments
-- `all_exprs::Dict{DataType, ConstsAndExprs}`: Typed expression pool used to create statements.
-- `algparams::AlgorithmParameters`: Function signature and type information.
+- `all_exprs::Dict{DataType, ConstsAndExprs}`: Dictionary of typed expression pools, including Boolean expressions.
+- `algparams::AlgorithmParameters`: Expression pool containing generated values for each type.
 
 # Returns
 - `Expr`: `:block` expression with one or two statements.
@@ -224,7 +222,7 @@ This helper samples a condition from the Boolean expression pool and synthesizes
 
 # Arguments
 - `all_exprs::Dict{DataType, ConstsAndExprs}`: Dictionary of typed expression pools, including Boolean expressions.
-- `algparams::AlgorithmParameters`: Configuration providing the function signature and type metadata.
+- `algparams::AlgorithmParameters`: Expression pool containing generated values for each type.
 
 # Returns
 - `Expr`: An `if` expression built from a condition and generated block(s).

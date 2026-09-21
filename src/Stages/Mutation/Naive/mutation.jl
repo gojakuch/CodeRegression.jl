@@ -17,6 +17,9 @@ end
 """
 Insert a generated statement into an expression argument array.
 
+# Arguments
+- `mc::__MutationContext`: Mutation state containing the expression pool and operator definitions.
+
 The `arr` array is mutated in place.
 """
 function insertstmt!(arr, mc::__MutationContext)
@@ -32,6 +35,9 @@ end
 
 """
 Randomly insert, delete, or recursively mutate a statement in a block.
+
+# Arguments
+- `mc::__MutationContext`: Mutation state containing the expression pool and operator definitions.
 
 The `body` expression is mutated in place.
 """
@@ -66,6 +72,9 @@ end
 """
 Mutate an `if` condition or insert a statement into one of its branches.
 
+# Arguments
+- `mc::__MutationContext`: Mutation state containing the expression pool and operator definitions.
+
 The `if_expr` expression is mutated in place.
 """
 function mutate_if!(if_expr::Expr, mc::__MutationContext)
@@ -91,14 +100,17 @@ function mutate_if!(if_expr::Expr, mc::__MutationContext)
 end
 
 """
-TODO
+This function is used to mutate RHS of assignments or subexpressions of 
+return statements. Note: it does not follow the typical mutation visitor pattern
+because it does not mutate the original expression, returning a new one instead.
+
 # Arguments
 - `ex`: Pure expression, symbol, or literal to mutate.
 - `dt::DataType`: Declared type of `ex`.
 - `mc::__MutationContext`: Mutation state containing the expression pool and operator definitions.
 
 # Returns
-- `Expr`: A new AST representing the mutated pure expression. Returns `deepcopy(ex)` if mutation fails or is disabled.
+- `Expr` or `Symbol` if it did nothing to ex and ex was `Symbol`
 """
 function mutate_pure_expression(ex, dt::DataType, mc::__MutationContext)
     gdt = general_type(dt)
@@ -189,7 +201,7 @@ Replace the `right-hand` side of an assignment with a type-preserving `mutated` 
 
 # Arguments
 - `assign_expr::Expr`: Assignment expression whose right-hand side will be replaced.
-- `mc::__MutationContext`: Mutation context containing the generated expression pool and the active candidate function.
+- `mc::__MutationContext`: Mutation state containing the expression pool and operator definitions.
 
 # Returns
 - `Nothing`: The input assignment node is mutated in place.
@@ -207,7 +219,7 @@ Replace `return` expression with a type-preserving mutated expression.
 
 # Arguments
 - `r::Expr`: Return expression whose value will be replaced.
-- `mc::__MutationContext`: Mutation context containing the active candidate and the generated expression pool.
+- `mc::__MutationContext`: Mutation state containing the expression pool and operator definitions.
 
 # Returns
 - `Nothing`: The input return expression is mutated in place.
@@ -218,7 +230,10 @@ end
 
 
 """
-    Report that direct mutation of call expressions is not implemented.
+Report that direct mutation of call expressions is not implemented.
+
+# Arguments
+- `mc::__MutationContext`: Mutation state containing the expression pool and operator definitions.
 """
 function mutate_call!(c::Expr, mc::__MutationContext)
     @warn "cannot mutate calls yet" # TODO: implement this like in `mutate_pure_expression`
@@ -230,7 +245,7 @@ Dispatch an expression to the mutation visitor associated with its expression he
 
 # Arguments
 - `e::Expr`: Expression node to mutate.
-- `mc::__MutationContext`: Context containing the candidate being mutated and the generated expression pool.
+- `mc::__MutationContext`: Mutation state containing the expression pool and operator definitions.
 
 # Returns
 - `Nothing`: The input expression may be mutated in place.
@@ -251,7 +266,9 @@ end
 
 
 """
-Create a mutated copy of a candidate function while preserving the original algorithm configuration.
+Create a mutated copy of a candidate function
+while preserving the original algorithm configuration.
+The only mutate wrapper the user should call!
 
 # Arguments
 - `cf::CandidateFunction`: Original candidate function to mutate.

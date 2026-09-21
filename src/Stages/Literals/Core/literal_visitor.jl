@@ -70,7 +70,7 @@ Traverse a return expression and collect wrapped literals.
 
 # Arguments
 - `r::Expr`: A return expression node.
-- `literals::Vector{Expr}`: The vector into which discovered literal AST nodes are pushed in-place.
+- `literals::Vector{Expr}`: Mutable output vector that receives any discovered literal AST nodes.
 
 # Returns
 - `Nothing`: The function operates by mutating the `literals` vector in-place.
@@ -85,7 +85,7 @@ Collect a wrapped literal call or recursively traverse a general call.
 
 # Arguments
 - `c::Expr`: A call expression node.
-- `literals::Vector{Expr}`: The vector into which discovered literal AST nodes are pushed in-place.
+- `literals::Vector{Expr}`: Mutable output vector that receives any discovered literal AST nodes.
 
 # Returns
 - `Nothing`: The function operates by mutating the `literals` vector in-place.
@@ -108,7 +108,7 @@ Dispatch literal collection for an expression and mutate `literals` in place.
 
 # Arguments
 - `e::Expr`: The current expression node being traversed.
-- `literals::Vector{Expr}`: The vector into which matching literal AST nodes are pushed in-place. **(Mutated)**
+- `literals::Vector{Expr}`: Mutable output vector that receives any discovered literal AST nodes.
 
 # Returns
 - `Nothing`: The function operates by mutating the `literals` argument in-place.
@@ -148,9 +148,10 @@ Return all `_cw_(literal)` subexpressions found in a function declaration.
 - `f::Expr`: The root expression AST node to search.
 
 # Returns
-- `Vector{Expr}`: A list of expression AST nodes (`Expr`) corresponding to the identified literals in `f`.
+- `Vector{Expr}`: A list of expression AST nodes (`Expr`) corresponding to the 
+    identified literals (the `:(cw(LITERAL))` subexpressions) in `f`. Does not copy the
+    expressions.
 """
-
 function find_literals(f::Expr)::Vector{Expr}
     literals = Expr[]
     find_literals!(f, literals)
