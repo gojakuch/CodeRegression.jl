@@ -1,9 +1,24 @@
 # this file describes the mutation visitor based on the general visitor template in "visitor_template.jl"
+import CodeRegression.Operators.Utils: AllowedOperationDescription, CandidateFunction, general_type, make_const_wrap, get_body
+import CodeRegression.Operators.Methods.Generation.GP.Operators: generate_stmt
+import CodeRegression.Operators.Methods.Mutation.Core: __MutationContext
 
+"""
+Reject mutation of nested function declarations.
+
+# Throws
+- `String`: Nested function declarations are not supported.
+"""
 function mutate_function!(::Expr, ::__MutationContext)
     throw("tried to modify a nested function decl. nested functions are not allowed")
 end
 
+
+"""
+Insert a generated statement into an expression argument array.
+
+The `arr` array is mutated in place.
+"""
 function insertstmt!(arr, mc::__MutationContext)
     stmt = generate_stmt(mc.all_exprs, mc.f.algparams_ref)
 
@@ -14,6 +29,12 @@ function insertstmt!(arr, mc::__MutationContext)
     end
 end
 
+
+"""
+Randomly insert, delete, or recursively mutate a statement in a block.
+
+The `body` expression is mutated in place.
+"""
 function mutate_block!(body::Expr, mc::__MutationContext)
     # just add smth before the return (random line)
     r = rand()
@@ -42,6 +63,11 @@ function mutate_block!(body::Expr, mc::__MutationContext)
     mutate!(body.args[ind], mc)
 end
 
+"""
+Mutate an `if` condition or insert a statement into one of its branches.
+
+The `if_expr` expression is mutated in place.
+"""
 function mutate_if!(if_expr::Expr, mc::__MutationContext)
     # choose if we modify the body or cond
     # recursion here later
@@ -65,10 +91,14 @@ function mutate_if!(if_expr::Expr, mc::__MutationContext)
 end
 
 """
-    this function does not follow the typical mutation visitor pattern because it does not mutate the original expression.
-    it is used to mutate rhs of assignments or subexpressions of return statements.
+TODO
+# Arguments
+- `ex`: Pure expression, symbol, or literal to mutate.
+- `dt::DataType`: Declared type of `ex`.
+- `mc::__MutationContext`: Mutation state containing the expression pool and operator definitions.
 
-    `ex` is supposed to be a pure expression (or a Symbol or value), and `dt` its type.
+# Returns
+- `Expr`: A new AST representing the mutated pure expression. Returns `deepcopy(ex)` if mutation fails or is disabled.
 """
 function mutate_pure_expression(ex, dt::DataType, mc::__MutationContext)
     gdt = general_type(dt)
@@ -153,6 +183,17 @@ function mutate_pure_expression(ex, dt::DataType, mc::__MutationContext)
     return deepcopy(ex)
 end
 
+
+"""
+Replace the `right-hand` side of an assignment with a type-preserving `mutated` value.
+
+# Arguments
+- `assign_expr::Expr`: Assignment expression whose right-hand side will be replaced.
+- `mc::__MutationContext`: Mutation context containing the generated expression pool and the active candidate function.
+
+# Returns
+- `Nothing`: The input assignment node is mutated in place.
+"""
 function mutate_assign!(assign_expr::Expr, mc::__MutationContext)
     # potential SR.jl integration here (optional)
 
@@ -160,14 +201,40 @@ function mutate_assign!(assign_expr::Expr, mc::__MutationContext)
     assign_expr.args[2] = mutate_pure_expression(assign_expr.args[2], mc.f.algparams_ref.f_arg_types[var], mc)
 end
 
+
+"""
+Replace `return` expression with a type-preserving mutated expression.
+
+# Arguments
+- `r::Expr`: Return expression whose value will be replaced.
+- `mc::__MutationContext`: Mutation context containing the active candidate and the generated expression pool.
+
+# Returns
+- `Nothing`: The input return expression is mutated in place.
+"""
 function mutate_return!(r::Expr, mc::__MutationContext)
     r.args[1] = mutate_pure_expression(r.args[1], mc.f.algparams_ref.f_return_type, mc)
 end
 
+
+"""
+    Report that direct mutation of call expressions is not implemented.
+"""
 function mutate_call!(c::Expr, mc::__MutationContext)
     @warn "cannot mutate calls yet" # TODO: implement this like in `mutate_pure_expression`
 end
 
+
+"""
+Dispatch an expression to the mutation visitor associated with its expression head.
+
+# Arguments
+- `e::Expr`: Expression node to mutate.
+- `mc::__MutationContext`: Context containing the candidate being mutated and the generated expression pool.
+
+# Returns
+- `Nothing`: The input expression may be mutated in place.
+"""
 function mutate!(e::Expr, mc::__MutationContext)
     dispatch = Dict(
         :function => mutate_function!,
@@ -182,10 +249,15 @@ function mutate!(e::Expr, mc::__MutationContext)
     end
 end
 
+
 """
-    mutates a CandidateFunction and returns the new one.
-    
-    the only mutate wraper the user should call.
+Create a mutated copy of a candidate function while preserving the original algorithm configuration.
+
+# Arguments
+- `cf::CandidateFunction`: Original candidate function to mutate.
+
+# Returns
+- `CandidateFunction`: A new candidate with a deep-copied declaration and the same `algparams_ref`.
 """
 function mutate(cf::CandidateFunction)::CandidateFunction
     new_f = deepcopy(cf.fdecl)
