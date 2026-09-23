@@ -1,4 +1,4 @@
-import CodeRegression.src.Utils: AlgorithmParameters, ConstsAndExprs, general_type, make_const_wrap
+import CodeRegression.Utils: AlgorithmParameters, ConstsAndExprs, general_type, make_const_wrap
 
 
 """
