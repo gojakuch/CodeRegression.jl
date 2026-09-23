@@ -1,10 +1,5 @@
 """
-Generate a callable for each candidate that does not already have one.
-
-The `CandidateFunction.callable` field is mutated in place for candidates if callable is `nothing`.
-
-# Returns
-- `Nothing`
+    Generates callable for every candidate function without a callable in the candidates pair array.
 """
 function generate_callables!(candidates::Vector{Pair{CandidateFunction, Float64}})
     for (cf, _) in candidates
@@ -17,67 +12,49 @@ function generate_callables!(candidates::Vector{Pair{CandidateFunction, Float64}
     nothing
 end
 
-
-"""
-Verify that an expression has the expected head.
-
-# Throws
-- `ErrorException`: If `e.head` is not `t`.
-"""
 function check_expr_type(e::Expr, t::Symbol)
     if e.head != t
         error("expected expression of type :" * string(t) * " but :" * string(e.head) * " was given")
     end
 end
 
+"""
+    returns true if e is of stmt type
+"""
+function is_stmt(e::Expr)::Bool
+    t = e.head
+    t == (:if) || t == (:block) || t == (:for) || t == (:while) || t == (:return) || t == :(=) # Only the necessary
+end
 
 """
-Return the body of a Julia function declaration expression.
-
-# Throws
-- `ErrorException`: If `f` is not a function declaration.
+    returns the body of a function declaration
 """
 function get_body(f::Expr) 
     check_expr_type(f, :function)
     f.args[2]
 end
 
-
 """
-Return the signature expression of a Julia function declaration.
-
-# Throws
-- `ErrorException`: If `f` is not a function declaration.
+    returns the signature of a function declaration
 """
 function get_signature(f::Expr) 
     check_expr_type(f, :function)
     f.args[1]
 end
 
-
 """
-Parse a typed argument expression into a symbol and its evaluated type.
-
-# Returns
-- `Pair{Symbol, DataType}`: The argument name paired with its type.
+    returns a pair with the symbol and it's type parsed from :(s::Type)
 """
 function get_symbol_type_pair(s::Expr)
     check_expr_type(s, :(::))
     return (s.args[1] => eval(s.args[2]))
 end
-
-
-"""
-Return an untyped symbol paired with `Any`.
-"""
 function get_symbol_type_pair(s::Symbol)
     return (s => Any)
 end
 
-
 """
-TODO
-Return the argument names from a function declaration expression.
+    returns the list of arguments of a function declaration
 """
 function get_args(f::Expr)
     check_expr_type(f, :function)
@@ -88,10 +65,8 @@ function get_args(f::Expr)
     [get_symbol_type_pair(pair)[1] for pair in s.args[(1+Int(s.head == :call)):end]]
 end
 
-
 """
-TODO
-Return function argument names paired with their declared types.
+    returns a named tuple of all the function args with their types
 """
 function get_arg_types(f::Expr)::NamedTuple
     check_expr_type(f, :function)
@@ -102,9 +77,9 @@ function get_arg_types(f::Expr)::NamedTuple
     NamedTuple(Dict(get_symbol_type_pair(pair) for pair in s.args[(1+Int(s.head == :call)):end]))
 end
 
-
 """
-Return the generalized numeric type used to group generated expressions.
+    when generating and mutating code we need to keep track of the values but we want to generalise some types for expressions. 
+    given a type, returns its generalisation
 """
 function general_type(type::DataType)
     d = Dict{DataType, DataType}(
@@ -121,9 +96,8 @@ function general_type(type::DataType)
     get(d, type, type)
 end
 
-
 """
-Return the declared return type of a function declaration, or `Any` when none is declared.
+    returns the return type of a function declaration
 """
 function get_return_type(f::Expr)
     check_expr_type(f, :function)
@@ -134,19 +108,11 @@ function get_return_type(f::Expr)
     return Any
 end
 
-
-"""
-Sample one field from a named tuple and return its index paired with its value.
-"""
 function Base.rand(t::NamedTuple) # we sample from named tuples
     i = rand(eachindex(t))
     return (i, getfield(t, i))
 end
 
-
-"""
-Sample an expression and indicate whether it came from `ce.consts`.
-"""
 function Base.rand(ce::ConstsAndExprs)
     idx = rand(1:(length(ce.consts) + length(ce.exprs)))
     if idx <= length(ce.consts)
@@ -155,17 +121,17 @@ function Base.rand(ce::ConstsAndExprs)
     return (ce.exprs[idx-length(ce.consts)], false)
 end
 
-
 """
-Return `x` unchanged. This marker is used to identify literals in generated expressions.
+    _cw_(x) = x 
+
+    used to wrap literals.
 """
 _cw_(x) = x
-
 
 """
     x must be smth representable as a literal!
 
-    Returns literal wraped in _cw_ marker
+    returns Expr(:call, :_cw_, x)
 """
 function make_const_wrap(x)::Expr 
     Expr(:call, :_cw_, x)
