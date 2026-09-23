@@ -32,22 +32,10 @@ end
 
 
 """
-<<<<<<< HEAD:src/Utils/utils.jl
-    returns true if e is of stmt type
-"""
-function is_stmt(e::Expr)::Bool
-    t = e.head
-    t == (:if) || t == (:block) || t == (:for) || t == (:while) || t == (:return) || t == :(=) # Only the necessary
-end
-
-"""
-    returns the body of a function declaration
-=======
 Return the body of a Julia function declaration expression.
 
 # Throws
 - `ErrorException`: If `f` is not a function declaration.
->>>>>>> 58d9ad0 (Doc strings for every function and struct expect of mutate_pure_expression):src/Operators/Utils/utils.jl
 """
 function get_body(f::Expr) 
     check_expr_type(f, :function)
