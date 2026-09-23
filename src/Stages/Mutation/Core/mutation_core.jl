@@ -1,4 +1,4 @@
-import CodeRegression.Operators.Utils: CandidateFunction, ConstsAndExprs
+import CodeRegression.src.Utils: CandidateFunction, ConstsAndExprs
 import CodeRegression.Operators.Methods.Generation.GP.Operators: generate_exprs
 
 """
