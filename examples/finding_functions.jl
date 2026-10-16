@@ -33,43 +33,42 @@ algparams, init_f = CodeRegression.init(
     #=expr_gen_depth=#3,
     #=apply_mutate_to_pure_exprs=#false,
     #=apply_literal_optim=#false, 
-    #=literal_optim_iters=#0);
+    #=literal_optim_iters=#0,
+    #=_candidate_function_criterion_type=#Float64);
 par_types = Tuple(algparams.f_arg_types);
-candidates = Pair{CandidateFunction, Float64}[Pair(init_f, NaN)];
+candidates = CandidateFunction{Float64}[init_f];
 max_size = 50;
 trim_size = 10;
 iters = 15;
 reproducing_pairs = 8;
 
-Random.seed!(1)
+Random.seed!(1);
 for it in 1:iters
     # mutate
-    mutpair(p) = Pair{CandidateFunction, Float64}(mutate(p[1]), NaN64)
-    mutants = mutpair.(candidates)
+    mutants = mutate.(candidates)
     candidates = cat(candidates, mutants; dims=1)
 
     # crossover
-    # TODO: maybe figure out a good distribution for how to pick the reproducing pairs, for the best to be ahead??
-    children = Pair{CandidateFunction, Float64}[]
+    # TODO: PROPER SELECTION STAGE AND REPRODUCTION + SELECTION MATCHING
+    children = CandidateFunction{Float64}[]
     for rp in 1:reproducing_pairs
-        # shuffle!(candidates)
         if rp+1 > length(candidates)
             break
         end
         parent1 = candidates[rp]
         parent2 = rand(candidates[(rp+1):end])
-        push!(children, (crossover(parent1[1], parent2[1]) => NaN64))
+        push!(children, crossover(parent1, parent2))
     end
     candidates = cat(candidates, children; dims=1)
 
     # compute objectives and sort
-    generate_callables!(candidates)
+    generate_callable!.(candidates)
     objective!(target_f, candidates)
-    sort!(candidates; lt=(x, y)->(isless(x[2], y[2])))
+    sort!(candidates; lt=(x, y)->(isless(x.criterion, y.criterion)))
     if length(candidates) > max_size
         candidates = candidates[1:trim_size]
     end
 end
 
-println(candidates[1][1].fdecl)
-println(candidates[1][2])
+println(candidates[1].fdecl)
+println(candidates[1].criterion)

@@ -9,11 +9,11 @@ module CodeRegression
         export ConstsAndExprs, AllowedOperationDescription, AlgorithmParameters, CandidateFunction, init
 
         include("Utils/utils.jl")
-        export generate_callables!, check_expr_type, is_stmt, get_body, get_signature, get_symbol_type_pair, get_args, get_arg_types, general_type, get_return_type, _cw_, make_const_wrap
+        export generate_callable!, check_expr_type, is_stmt, get_body, get_signature, get_symbol_type_pair, get_args, get_arg_types, general_type, get_return_type, _cw_, make_const_wrap
     end
     using .Utils
     # TODO: move these from Utils, they are important and exported, they don't belong here
-    export AllowedOperationDescription, AlgorithmParameters, CandidateFunction, init, _cw_, make_const_wrap, generate_callables!
+    export AllowedOperationDescription, AlgorithmParameters, CandidateFunction, init, _cw_, make_const_wrap, generate_callable!
 
     module Stages
         module Literals

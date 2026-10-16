@@ -73,7 +73,8 @@ end
                 #=expr_gen_depth=#3,
                 #=apply_mutate_to_pure_exprs=#false,
                 #=apply_literal_optim=#false, 
-                #=literal_optim_iters=#0)
+                #=literal_optim_iters=#0,
+                #=_candidate_function_criterion_type=#Float64);
             par_types = Tuple(algparams.f_arg_types)
 
             max_size = 50
@@ -83,45 +84,43 @@ end
             fraction_passed = 0
             testvar = false
             for seed in test_param_set.seeds
-                candidates = Pair{CandidateFunction, Float64}[Pair(init_f, NaN)];
+                candidates = CandidateFunction{Float64}[init_f]
 
                 res = false
                 Random.seed!(seed)
                 for it in 1:iters
                     # mutate
-                    mutpair(p) = Pair{CandidateFunction, Float64}(mutate(p[1]), NaN64)
-                    mutants = mutpair.(candidates)
+                    mutants = mutate.(candidates)
                     candidates = cat(candidates, mutants; dims=1)
 
                     # crossover
-                    children = Pair{CandidateFunction, Float64}[]
+                    children = CandidateFunction{Float64}[]
                     for rp in 1:reproducing_pairs
-                        # shuffle!(candidates)
                         if rp+1 > length(candidates)
                             break
                         end
                         parent1 = candidates[rp]
                         parent2 = rand(candidates[(rp+1):end])
-                        push!(children, (crossover(parent1[1], parent2[1]) => NaN64))
+                        push!(children, crossover(parent1, parent2))
                     end
                     candidates = cat(candidates, children; dims=1)
 
                     # compute objectives and sort
-                    generate_callables!(candidates)
+                    generate_callable!.(candidates)
                     objective!(target_f, candidates)
-                    sort!(candidates; lt=(x, y)->(isless(x[2], y[2])))
+                    sort!(candidates; lt=(x, y)->(isless(x.criterion, y.criterion)))
                     if length(candidates) > max_size
                         candidates = candidates[1:trim_size]
                     end
 
-                    if candidates[1][2] < 0.01
+                    if candidates[1].criterion < 0.01
                         res = true
                         break
                     end
                 end
 
                 if !res
-                    println("Warning: Individual test failed: ", test_param_set.target_f, " with seed ", seed, ".\nBest candidate:\n", candidates[1][1].fdecl, "\nwith loss: ", candidates[1][2])
+                    println("Warning: Individual test failed: ", test_param_set.target_f, " with seed ", seed, ".\nBest candidate:\n", candidates[1].fdecl, "\nwith loss: ", candidates[1].criterion)
                 end
 
                 count_passed += res
@@ -163,7 +162,7 @@ end
                     end
                     return -x
                 end),
-            Float64,  Dict{DataType, Vector{AllowedOperationDescription}}(), 0, false, false, 0)
+            Float64,  Dict{DataType, Vector{AllowedOperationDescription}}(), 0, false, false, 0, Float64)
             cff_backup = deepcopy(cff)
             
             p = swap_literals_with_params(cff)
@@ -191,7 +190,7 @@ end
                     end
                     return -x
                 end), 
-            Float64,  Dict{DataType, Vector{AllowedOperationDescription}}(), 0, false, false, 0)
+            Float64,  Dict{DataType, Vector{AllowedOperationDescription}}(), 0, false, false, 0, Float64)
             p = swap_literals_with_params(cff)
             xs = -2:0.001:2
             loss = function(f)
@@ -214,7 +213,7 @@ end
                 end
                 return _cw_(-1.2)
             end),
-        Float64,  Dict{DataType, Vector{AllowedOperationDescription}}(), 0, false, false, 0)
+        Float64,  Dict{DataType, Vector{AllowedOperationDescription}}(), 0, false, false, 0, Float64)
         p = swap_literals_with_params(cff)
         xs = -2:0.01:2
         loss = function(f)
@@ -268,7 +267,8 @@ end
                     #=expr_gen_depth=#3,
                     #=apply_mutate_to_pure_exprs=#false,
                     #=apply_literal_optim=#true, 
-                    #=literal_optim_iters=#50)
+                    #=literal_optim_iters=#50,
+                    #=_candidate_function_criterion_type=#Float64);
                 par_types = Tuple(algparams.f_arg_types)
 
                 max_size = 50
@@ -281,32 +281,29 @@ end
                 for seed_i in eachindex(test_param_set.seeds)
                     seed = test_param_set.seeds[seed_i]
 
-                    candidates = Pair{CandidateFunction, Float64}[Pair(init_f, NaN)];
+                    candidates = CandidateFunction{Float64}[init_f];
 
                     Random.seed!(seed)
                     for it in 1:iters
                         # mutate
-                        mutpair(p) = Pair{CandidateFunction, Float64}(mutate(p[1]), NaN64)
-                        mutants = mutpair.(candidates)
+                        mutants = mutate.(candidates)
                         candidates = cat(candidates, mutants; dims=1)
 
                         # crossover
-                        children = Pair{CandidateFunction, Float64}[]
+                        children = CandidateFunction{Float64}[]
                         for rp in 1:reproducing_pairs
-                            # shuffle!(candidates)
                             if rp+1 > length(candidates)
                                 break
                             end
                             parent1 = candidates[rp]
                             parent2 = rand(candidates[(rp+1):end])
-                            push!(children, (crossover(parent1[1], parent2[1]) => NaN64))
+                            push!(children, crossover(parent1, parent2))
                         end
                         candidates = cat(candidates, children; dims=1)
 
                         # literal optimisation
                         if algparams.apply_literal_optim
-                            swap_literals_pair(p) = swap_literals_with_params(p[1])
-                            ps = swap_literals_pair.(candidates)
+                            ps = swap_literals_with_params.(candidates)
                             xs = -2:0.001:2
                             loss = function(f)
                                 sum((target_f.(xs) - f.(xs)).^2)/100
@@ -314,20 +311,20 @@ end
 
                             for p in ps
                                 optimize_literals!(p, loss, algparams.literal_optim_iters, 0.01)
-                                push!(candidates, Pair(p.cf, NaN64))
+                                push!(candidates, p.cf)
                             end
                         end
 
                         # compute objectives and sort
-                        generate_callables!(candidates)
+                        generate_callable!.(candidates)
                         objective!(target_f, candidates)
-                        sort!(candidates; lt=(x, y)->(isless(x[2], y[2])))
+                        sort!(candidates; lt=(x, y)->(isless(x.criterion, y.criterion)))
                         if length(candidates) > max_size
                             candidates = candidates[1:trim_size]
                         end
                     end
 
-                    push!(precisions_and_seeds, Pair(candidates[1][2], seed))
+                    push!(precisions_and_seeds, Pair(candidates[1].criterion, seed))
                 end
 
                 target_precisions = sort(test_param_set.precisions)
@@ -408,7 +405,8 @@ end
             #=expr_gen_depth=#3,
             #=apply_mutate_to_pure_exprs=#true,
             #=apply_literal_optim=#false, 
-            #=literal_optim_iters=#0);
+            #=literal_optim_iters=#0,
+            #=_candidate_function_criterion_type=#Float64);
         
         @testset "`mutate_pure_expression` test (handling atomic stuff)" begin
             for seed in mpe_test_seeds
@@ -478,7 +476,8 @@ end
             #=expr_gen_depth=#3,
             #=apply_mutate_to_pure_exprs=#false, 
             #=apply_literal_optim=#false, 
-            #=literal_optim_iters=#0);
+            #=literal_optim_iters=#0,
+            #=_candidate_function_criterion_type=#Float64);
 
         @testset "`mutate_pure_expression` test (apply_mutate_to_pure_exprs=false)" begin
             for seed in mpe_test_seeds

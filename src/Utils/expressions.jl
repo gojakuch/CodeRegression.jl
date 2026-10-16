@@ -133,27 +133,35 @@ end
 """
 Wrap a function declaration expression and the algorithm configuration used to transform it.
 
+- `CriterionType`: a type that is used to save the criterion result for the function. typically, `Float64` can be used. this type must define a `Base.zero(::CriterionType)` just to be able to create dummy objects of this type.
+
 # Fields
 - `fdecl::Expr`: Julia function declaration represented as an expression.
 - `algparams_ref::AlgorithmParameters`: Configuration shared by candidates.
 - `callable::Union{RuntimeGeneratedFunction, Nothing}`: Generated callable, or `nothing` until compilation.
+- `criterion::CriterionType`: the computed value of the objective function / criterion for this candidate function. for numerical criterion of type `T<:Number`, bigger value of criterion indicates worse performance of the candidate function.
+- `computed_criterion::Bool`: whether the criterion has been computed yet. if `true`, the `criterion` field should be safe to use, otherwise `criterion` needs to be computed first.
 """
-mutable struct CandidateFunction
+mutable struct CandidateFunction{CriterionType}
     fdecl::Expr
     algparams_ref::AlgorithmParameters
     callable::Union{RuntimeGeneratedFunction, Nothing} # WARNING: check if there's no mismatch between fdecl and callable occuring anywhere if fdecl is changed potentially
+    criterion::CriterionType
+    computed_criterion::Bool
 end
 
-CandidateFunction(fdecl::Expr, algparams_ref::AlgorithmParameters) = CandidateFunction(fdecl, algparams_ref, nothing)
+function CandidateFunction{T}(fdecl::Expr, algparams_ref::AlgorithmParameters) where T
+ CandidateFunction(fdecl, algparams_ref, nothing, Base.zero(T), false)
+end
 
 
 """
 Create linked algorithm parameters and an initial candidate function.
 
 # Returns
-- `Tuple{AlgorithmParameters, CandidateFunction}`: The configuration and candidate sharing that configuration.
+- `Tuple{AlgorithmParameters, CandidateFunction{_candidate_function_criterion_type}}`: The configuration and candidate sharing that configuration.
 """
-function init(_initial_fdecl::Expr, _f_return_type::DataType, _all_ops::Dict{DataType, Vector{AllowedOperationDescription}}, _expr_gen_depth::Int, _apply_mutate_to_pure_exprs::Bool, _apply_literal_optim::Bool, _literal_optim_iters::Int)
+function init(_initial_fdecl::Expr, _f_return_type::DataType, _all_ops::Dict{DataType, Vector{AllowedOperationDescription}}, _expr_gen_depth::Int, _apply_mutate_to_pure_exprs::Bool, _apply_literal_optim::Bool, _literal_optim_iters::Int, _candidate_function_criterion_type::DataType)
     algparams = AlgorithmParameters(
         get_arg_types(_initial_fdecl),
         _f_return_type,
@@ -163,5 +171,5 @@ function init(_initial_fdecl::Expr, _f_return_type::DataType, _all_ops::Dict{Dat
         _apply_literal_optim,
         _literal_optim_iters
     )
-    return algparams, CandidateFunction(_initial_fdecl, algparams)
+    return algparams, CandidateFunction{_candidate_function_criterion_type}(_initial_fdecl, algparams)
 end
