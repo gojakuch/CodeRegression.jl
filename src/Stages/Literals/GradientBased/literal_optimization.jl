@@ -4,7 +4,7 @@ RuntimeGeneratedFunctions.init(@__MODULE__)
 
 """
 CandidateFunction with parametrised literals.
-Is produced by `swap_literals_with_params` and should only be created from there.
+WARNING: Objects of this type are produced by `swap_literals_with_params` and should only be created from there.
 
 # Fields
 - `cf::CandidateFunction`: Original candidate whose declaration is updated after optimization.
@@ -14,8 +14,8 @@ Is produced by `swap_literals_with_params` and should only be created from there
 - `values::Vector`: Current values assigned to those literals.
 - `new_params::Vector{Symbol}`: Parameter names corresponding to `literals` and `values`.
 """
-mutable struct ParamLiteralCandidateFunction
-    cf::CandidateFunction # original candidate function (copy) TODO: do we need this to be a copy or just assume that the optimisation is reliable and will always improve the function?
+mutable struct ParamLiteralCandidateFunction{CriterionType}
+    cf::CandidateFunction{CriterionType} # original candidate function (copy) TODO: do we need this to be a copy or just assume that the optimisation is reliable and will always improve the function?
     param_fdecl::Expr # declaration of the function where all the literals are parameteres instead
     param_f::RuntimeGeneratedFunction # = kind of like eval(param_fdecl), actually @RuntimeGeneratedFunction(param_fdecl)
     literals::Vector{Expr} # literals from `param_fdecl`, not `cf.fdecl`
@@ -36,7 +36,7 @@ should be created in order to be formed properly.
 # Returns
 - `ParamLiteralCandidateFunction`
 """
-function swap_literals_with_params(cf::CandidateFunction)::ParamLiteralCandidateFunction
+function swap_literals_with_params(cf::CandidateFunction{CriterionType})::ParamLiteralCandidateFunction{CriterionType} where CriterionType
     param_decl = deepcopy(cf.fdecl)
     literals = find_literals(param_decl)
     values = Float64[] # FIXME: figure out the types and make this function work for other literals too or skip non-numerical ones
@@ -51,7 +51,7 @@ function swap_literals_with_params(cf::CandidateFunction)::ParamLiteralCandidate
         push!(param_decl.args[1].args, param_name)
     end
 
-    ParamLiteralCandidateFunction(deepcopy(cf), param_decl, @RuntimeGeneratedFunction(param_decl), literals, values, new_params)
+    ParamLiteralCandidateFunction{CriterionType}(deepcopy(cf), param_decl, @RuntimeGeneratedFunction(param_decl), literals, values, new_params)
 end
 
 
