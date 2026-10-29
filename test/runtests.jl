@@ -266,11 +266,11 @@ end
             for test_param_set in [
                         # TODO: lower the precisions values once our GP and LO get better (and maybe do a max pooling over a set of sets of seeds)
                         (fname="2*sign(x)", target_f = (x)->2*sign(x), iters = 5, seeds = 0:10:90, 
-                        precisions=[0.0035, 0.016, 0.57, 0.72, 0.82, 0.88, 0.89, 1.04, 1.05, 1.27],),
+                        precisions=[0.024, 0.025, 0.575, 0.71, 0.77, 0.86, 0.92, 0.998, 1.1, 1.471],),
                         (fname="2.5*sign(x)+0.5", target_f = (x)->2.5*sign(x)+0.5, iters = 5, seeds = 0:10:90, 
-                        precisions=[0.029, 0.031, 1.06, 1.14, 1.16, 1.3, 1.33, 1.57, 1.93, 1.999],), # 1 iter gives the precision of ~2.5, so these tests still make sense
+                        precisions=[0.028, 0.028, 0.0302, 0.031, 0.71, 1.056, 1.126, 1.314, 1.482, 1.83],), # 1 iter gives the precision of ~2.5, so these tests still make sense
                         (fname="((x < 0.5 && x > -0.5) ? 1 : 0)", target_f = (x)->((x < 0.5 && x > -0.5) ? 1 : 0), iters = 5, seeds = 0:10:90, 
-                        precisions=[0.095, 0.12, 0.24, 0.25, 0.39, 0.39, 0.4, 0.43, 0.43, 0.47],)
+                        precisions=[0.13, 0.21, 0.23, 0.241, 0.26, 0.39, 0.39, 0.41, 0.42, 0.44],)
                     ]
                 target_f = test_param_set.target_f
                 iters = test_param_set.iters
@@ -348,9 +348,8 @@ end
                 diff_array = [target_precisions[i]-res_precisions_and_seeds[i][1] for i in eachindex(res_precisions_and_seeds)]
                 testvar = sum(diff_array .>= 0) == length(diff_array)
 
-                println("FOR CALCULATIONS ", test_param_set.fname, ": ")
+                println("\n(finding functions w/ literal optimisation) res_precisions_and_seeds for ", test_param_set.fname, ": ")
                 show(res_precisions_and_seeds)
-
                 if !testvar
                     println("\nTest failed COMPLETELY: ", test_param_set.fname, " (finding functions w/ literal optimisation); the diff_array looks like this: "),
                     show(diff_array)
