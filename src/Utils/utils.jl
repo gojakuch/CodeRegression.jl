@@ -2,10 +2,8 @@
     Generates callable for the candidate function without a callable
 """
 function generate_callable!(cf::CandidateFunction)
-    if isnothing(cf.callable)
-        def = cf.fdecl
-        cf.callable = @RuntimeGeneratedFunction(def)
-    end
+    def = cf.fdecl
+    cf.callable = @RuntimeGeneratedFunction(def)
 
     nothing
 end

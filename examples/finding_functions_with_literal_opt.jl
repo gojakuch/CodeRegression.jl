@@ -5,7 +5,7 @@ include("finding_functions_objectives.jl");
 
 target_f = (x)->2.5*sign(x)+0.5 # (x)->2*sign(x); (x)->2.5*sign(x)+0.5; (x)->((x < 0.5 && x > -0.5) ? 1 : 0); or similar functions can be approximated in this example
 
-allowed_ops = Dict{DataType, Vector{AllowedOperationDescription}}(
+allowed_ops = Dict{Type, Vector{AllowedOperationDescription}}(
     Bool => [
         AllowedOperationDescription(
             :(<), 
@@ -31,13 +31,12 @@ algparams, init_f = CodeRegression.init(
     #=all_ops=#allowed_ops, 
     #=expr_gen_depth=#3,
     #=apply_mutate_to_pure_exprs=#false,
-    #=apply_literal_optim=#true, 
+    #=selection_backend=#Truncation(#=max_size=#50, #=new_size=#10),
+    #=apply_literal_optim=#true,
     #=literal_optim_iters=#50,
     #=_candidate_function_criterion_type=#Float64);
 par_types = Tuple(algparams.f_arg_types);
-candidates = CandidateFunction{Float64}[init_f];
-max_size = 50;
-trim_size = 10;
+candidates = [init_f];
 iters = 3;
 reproducing_pairs = 8;
 
@@ -46,19 +45,6 @@ for it in 1:iters
     # mutate
     mutants = mutate.(candidates)
     candidates = cat(candidates, mutants; dims=1)
-
-    # crossover
-    # TODO: PROPER SELECTION STAGE AND REPRODUCTION + SELECTION MATCHING
-    children = CandidateFunction{Float64}[]
-    for rp in 1:reproducing_pairs
-        if rp+1 > length(candidates)
-            break
-        end
-        parent1 = candidates[rp]
-        parent2 = rand(candidates[(rp+1):end])
-        push!(children, crossover(parent1, parent2))
-    end
-    candidates = cat(candidates, children; dims=1)
 
     # literal optimisation
     if algparams.apply_literal_optim
@@ -74,14 +60,26 @@ for it in 1:iters
         end
     end
 
-    # compute objectives and sort
-    generate_callable!.(candidates)
+    # selection stage
     objective!(target_f, candidates)
-    sort!(candidates; lt=(x, y)->(isless(x.criterion, y.criterion)))
-    if length(candidates) > max_size
-        candidates = candidates[1:trim_size]
+    candidates = select(candidates)
+
+    # crossover stage
+    children = empty(candidates)
+    for rp in 1:reproducing_pairs
+        if rp+1 > length(candidates)
+            break
+        end
+        parent1 = candidates[rp]
+        parent2 = rand(candidates[(rp+1):end])
+        push!(children, crossover(parent1, parent2))
     end
+    candidates = cat(candidates, children; dims=1)
 end
+
+# sort again before choosing the best one
+objective!(target_f, candidates);
+sort!(candidates; lt=(x,y)->isless(x.criterion, y.criterion)); 
 
 println(candidates[1].fdecl)
 println(candidates[1].criterion)

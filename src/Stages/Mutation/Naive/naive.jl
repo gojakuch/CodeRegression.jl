@@ -273,9 +273,10 @@ The only mutate wrapper the user should call!
 # Returns
 - `CandidateFunction`: A new candidate with a deep-copied declaration and the same `algparams_ref`.
 """
-function mutate(cf::CandidateFunction{T})::CandidateFunction{T} where T
+function mutate(cf::CandidateFunction{C,A})::CandidateFunction{C,A} where {C,A}
     new_f = deepcopy(cf.fdecl)
-    new_cf = CandidateFunction{T}(new_f, cf.algparams_ref)
+    new_cf = CandidateFunction{C,A}(new_f, cf.algparams_ref)
     mutate!(get_body(new_f), __MutationContext(new_cf))
+    generate_callable!(new_cf)
     return new_cf
 end
