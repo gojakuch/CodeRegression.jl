@@ -92,13 +92,15 @@ end
 # Leaf node fallback (symbols, literals, numbers)
 crossover(a, b) = rand() > 0.5 ? deepcopy(a) : deepcopy(b)
 
-function crossover(cf1::CandidateFunction{CriterionType}, cf2::CandidateFunction{CriterionType})::CandidateFunction{CriterionType} where CriterionType
+function crossover(cf1::CandidateFunction{CriterionType, A}, cf2::CandidateFunction{CriterionType, A})::CandidateFunction{CriterionType, A} where {CriterionType, A}
     body1 = get_body(cf1.fdecl)
     body2 = get_body(cf2.fdecl)
 
     new_function_decl = copy(cf1.fdecl)
     new_function_decl.args[2] = crossover(body1, body2)
-    return CandidateFunction{CriterionType}(new_function_decl, cf1.algparams_ref)
+    new_cf = CandidateFunction{CriterionType, A}(new_function_decl, cf1.algparams_ref)
+    generate_callable!(new_cf)
+    return new_cf
 end
 
 function crossover(e1::Expr, e2::Expr)::Expr

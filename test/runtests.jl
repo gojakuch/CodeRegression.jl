@@ -27,9 +27,22 @@ end
 struct DummyDataType2_test
 end
 
+function best_criterion_idx(candidates::Vector{CandidateFunction{C,A}}) where {C,A}
+    b::Float64 = Inf64
+    idx::Int = 0
+    for i in eachindex(candidates)
+        cf = candidates[i]
+        if cf.criterion < b
+            idx = i
+            b = cf.criterion
+        end
+    end
+    return b, idx
+end
+
 @testset verbose=true "tests" begin
     @testset "finding functions, fixed seeds" begin # code taken from examples/finding_functions.jl
-        allowed_ops = Dict{DataType, Vector{AllowedOperationDescription}}(
+        allowed_ops = Dict{Type, Vector{AllowedOperationDescription}}(
             Bool => [
                 AllowedOperationDescription(
                     :(<), 
@@ -72,29 +85,40 @@ end
                 #=all_ops=#allowed_ops, 
                 #=expr_gen_depth=#3,
                 #=apply_mutate_to_pure_exprs=#false,
+                #=selection_backend=#Truncation(#=max_size=#50, #=new_size=#10),
                 #=apply_literal_optim=#false, 
                 #=literal_optim_iters=#0,
                 #=_candidate_function_criterion_type=#Float64);
             par_types = Tuple(algparams.f_arg_types)
 
-            max_size = 50
-            trim_size = 10
+            best_criterion = Inf64
+            best_idx = 0
             reproducing_pairs = 8
             count_passed = 0
             fraction_passed = 0
             testvar = false
             for seed in test_param_set.seeds
-                candidates = CandidateFunction{Float64}[init_f]
+                candidates = [init_f]
 
                 res = false
                 Random.seed!(seed)
                 for it in 1:iters
-                    # mutate
+                    # mutation stage
                     mutants = mutate.(candidates)
                     candidates = cat(candidates, mutants; dims=1)
 
-                    # crossover
-                    children = CandidateFunction{Float64}[]
+                    # selection stage
+                    objective!(target_f, candidates)
+                    candidates = select(candidates)
+                    # we need to do that when the objective is computed and also it's sorted then. we also repeat this check after all iters.
+                    best_criterion, best_idx = candidates[1].criterion, 1
+                    if best_criterion < 0.01
+                        res = true
+                        break
+                    end
+
+                    # crossover stage
+                    children = empty(candidates)
                     for rp in 1:reproducing_pairs
                         if rp+1 > length(candidates)
                             break
@@ -104,23 +128,16 @@ end
                         push!(children, crossover(parent1, parent2))
                     end
                     candidates = cat(candidates, children; dims=1)
+                end
 
-                    # compute objectives and sort
-                    generate_callable!.(candidates)
-                    objective!(target_f, candidates)
-                    sort!(candidates; lt=(x, y)->(isless(x.criterion, y.criterion)))
-                    if length(candidates) > max_size
-                        candidates = candidates[1:trim_size]
-                    end
-
-                    if candidates[1].criterion < 0.01
-                        res = true
-                        break
-                    end
+                # duplicate here unfortunately
+                best_criterion, best_idx = best_criterion_idx(candidates)
+                if best_criterion < 0.01
+                    res = true
                 end
 
                 if !res
-                    println("Warning: Individual test failed: ", test_param_set.target_f, " with seed ", seed, ".\nBest candidate:\n", candidates[1].fdecl, "\nwith loss: ", candidates[1].criterion)
+                    println("Warning: Individual test failed: ", test_param_set.target_f, " with seed ", seed, ".\nBest candidate:\n", candidates[best_idx].fdecl, "\nwith loss: ", candidates[best_idx].criterion)
                 end
 
                 count_passed += res
@@ -162,7 +179,7 @@ end
                     end
                     return -x
                 end),
-            Float64,  Dict{DataType, Vector{AllowedOperationDescription}}(), 0, false, false, 0, Float64)
+            Float64,  Dict{Type, Vector{AllowedOperationDescription}}(), 0, false, Truncation(0,0), false, 0, Float64)
             cff_backup = deepcopy(cff)
             
             p = swap_literals_with_params(cff)
@@ -190,7 +207,7 @@ end
                     end
                     return -x
                 end), 
-            Float64,  Dict{DataType, Vector{AllowedOperationDescription}}(), 0, false, false, 0, Float64)
+            Float64,  Dict{Type, Vector{AllowedOperationDescription}}(), 0, false, Truncation(0,0), false, 0, Float64)
             p = swap_literals_with_params(cff)
             xs = -2:0.001:2
             loss = function(f)
@@ -213,7 +230,7 @@ end
                 end
                 return _cw_(-1.2)
             end),
-        Float64,  Dict{DataType, Vector{AllowedOperationDescription}}(), 0, false, false, 0, Float64)
+        Float64,  Dict{Type, Vector{AllowedOperationDescription}}(), 0, false, Truncation(0,0), false, 0, Float64)
         p = swap_literals_with_params(cff)
         xs = -2:0.01:2
         loss = function(f)
@@ -228,7 +245,7 @@ end
 
     if !QUICK_TEST
         @testset "finding functions with literal optimisation, fixed seeds" begin # code taken from examples/finding_functions_with_literal_opt.jl
-            allowed_ops = Dict{DataType, Vector{AllowedOperationDescription}}(
+            allowed_ops = Dict{Type, Vector{AllowedOperationDescription}}(
                 Bool => [
                     AllowedOperationDescription(
                         :(<), 
@@ -266,13 +283,12 @@ end
                     #=all_ops=#allowed_ops, 
                     #=expr_gen_depth=#3,
                     #=apply_mutate_to_pure_exprs=#false,
+                    #=selection_backend=#Truncation(#=max_size=#50, #=new_size=#10),
                     #=apply_literal_optim=#true, 
                     #=literal_optim_iters=#50,
                     #=_candidate_function_criterion_type=#Float64);
                 par_types = Tuple(algparams.f_arg_types)
 
-                max_size = 50
-                trim_size = 10
                 reproducing_pairs = 8
                 count_passed = 0
                 fraction_passed = 0
@@ -281,25 +297,13 @@ end
                 for seed_i in eachindex(test_param_set.seeds)
                     seed = test_param_set.seeds[seed_i]
 
-                    candidates = CandidateFunction{Float64}[init_f];
+                    candidates = [init_f];
 
                     Random.seed!(seed)
                     for it in 1:iters
                         # mutate
                         mutants = mutate.(candidates)
                         candidates = cat(candidates, mutants; dims=1)
-
-                        # crossover
-                        children = CandidateFunction{Float64}[]
-                        for rp in 1:reproducing_pairs
-                            if rp+1 > length(candidates)
-                                break
-                            end
-                            parent1 = candidates[rp]
-                            parent2 = rand(candidates[(rp+1):end])
-                            push!(children, crossover(parent1, parent2))
-                        end
-                        candidates = cat(candidates, children; dims=1)
 
                         # literal optimisation
                         if algparams.apply_literal_optim
@@ -315,15 +319,26 @@ end
                             end
                         end
 
-                        # compute objectives and sort
-                        generate_callable!.(candidates)
+                        # selection stage
                         objective!(target_f, candidates)
-                        sort!(candidates; lt=(x, y)->(isless(x.criterion, y.criterion)))
-                        if length(candidates) > max_size
-                            candidates = candidates[1:trim_size]
+                        candidates = select(candidates)
+
+                        # crossover stage
+                        children = empty(candidates)
+                        for rp in 1:reproducing_pairs
+                            if rp+1 > length(candidates)
+                                break
+                            end
+                            parent1 = candidates[rp]
+                            parent2 = rand(candidates[(rp+1):end])
+                            push!(children, crossover(parent1, parent2))
                         end
+                        candidates = cat(candidates, children; dims=1)
                     end
 
+                    # sort again before choosing the best one
+                    objective!(target_f, candidates);
+                    sort!(candidates; lt=(x,y)->isless(x.criterion, y.criterion))
                     push!(precisions_and_seeds, Pair(candidates[1].criterion, seed))
                 end
 
@@ -332,6 +347,9 @@ end
 
                 diff_array = [target_precisions[i]-res_precisions_and_seeds[i][1] for i in eachindex(res_precisions_and_seeds)]
                 testvar = sum(diff_array .>= 0) == length(diff_array)
+
+                println("FOR CALCULATIONS ", test_param_set.fname, ": ")
+                show(res_precisions_and_seeds)
 
                 if !testvar
                     println("\nTest failed COMPLETELY: ", test_param_set.fname, " (finding functions w/ literal optimisation); the diff_array looks like this: "),
@@ -352,7 +370,7 @@ end
         mpe_test_seeds = (QUICK_TEST) ? (1:10) : (1:100)
 
         # we need exactly this set of operations for extensive testing!! do not change this, add new tests if necessary
-        mpe_test_allowed_ops = Dict{DataType, Vector{AllowedOperationDescription}}(
+        mpe_test_allowed_ops = Dict{Type, Vector{AllowedOperationDescription}}(
             Number => [
                 AllowedOperationDescription(
                     :(-), 
@@ -404,6 +422,7 @@ end
             #=all_ops=#mpe_test_allowed_ops, 
             #=expr_gen_depth=#3,
             #=apply_mutate_to_pure_exprs=#true,
+            Truncation(0,0), # dummy selection
             #=apply_literal_optim=#false, 
             #=literal_optim_iters=#0,
             #=_candidate_function_criterion_type=#Float64);
@@ -412,27 +431,27 @@ end
             for seed in mpe_test_seeds
                 Random.seed!(seed)
 
-                res = CodeRegression.Stages.Mutation.Naive.mutate_pure_expression(:(_cw_(123123.123123)), Number, CodeRegression.Stages.Mutation.__MutationContext(init_f))
+                res = CodeRegression.Stages.Mutation.mutate_pure_expression(:(_cw_(123123.123123)), Number, CodeRegression.Stages.Mutation.__MutationContext(init_f))
                 @test occursin("_cw_(123123.123123)", string(res))
 
-                res = CodeRegression.Stages.Mutation.Naive.mutate_pure_expression(:(sampletext), Number, CodeRegression.Stages.Mutation.__MutationContext(init_f))
+                res = CodeRegression.Stages.Mutation.mutate_pure_expression(:(sampletext), Number, CodeRegression.Stages.Mutation.__MutationContext(init_f))
                 @test occursin("sampletext", string(res))
             end
         end
 
         @testset "`mutate_pure_expression` test (handling a type with no proper operations)" begin
             pure_ex = :(string(1))
-            res = CodeRegression.Stages.Mutation.Naive.mutate_pure_expression(pure_ex, String, CodeRegression.Stages.Mutation.__MutationContext(init_f))
+            res = CodeRegression.Stages.Mutation.mutate_pure_expression(pure_ex, String, CodeRegression.Stages.Mutation.__MutationContext(init_f))
             @test string(pure_ex) == string(res) # shouldn't mutate, as there's no option to mutate Integers
 
-            res = CodeRegression.Stages.Mutation.Naive.mutate_pure_expression(:("sampletext"), String, CodeRegression.Stages.Mutation.__MutationContext(init_f))
+            res = CodeRegression.Stages.Mutation.mutate_pure_expression(:("sampletext"), String, CodeRegression.Stages.Mutation.__MutationContext(init_f))
             @test occursin("sampletext", string(res)) # shouldn't mutate, as there's no option to mutate Strings
 
-            res = CodeRegression.Stages.Mutation.Naive.mutate_pure_expression(:([1, 2]), Array{Int, 2}, CodeRegression.Stages.Mutation.__MutationContext(init_f))
+            res = CodeRegression.Stages.Mutation.mutate_pure_expression(:([1, 2]), Array{Int, 2}, CodeRegression.Stages.Mutation.__MutationContext(init_f))
             @test occursin("[1, 2]", string(res)) # shouldn't mutate, as the type is not listed
 
             pure_ex = :(abcdefg(0,1,2))
-            res = CodeRegression.Stages.Mutation.Naive.mutate_pure_expression(pure_ex, DummyDataType_test, CodeRegression.Stages.Mutation.__MutationContext(init_f))
+            res = CodeRegression.Stages.Mutation.mutate_pure_expression(pure_ex, DummyDataType_test, CodeRegression.Stages.Mutation.__MutationContext(init_f))
             @test string(pure_ex) == string(res) # shouldn't mutate, as the type is not listed
         end
 
@@ -441,28 +460,28 @@ end
                 Random.seed!(seed)
 
                 pure_ex = :(_cw_(2.0) + _cw_(1.0))
-                res = CodeRegression.Stages.Mutation.Naive.mutate_pure_expression(pure_ex, Number, CodeRegression.Stages.Mutation.__MutationContext(init_f))
+                res = CodeRegression.Stages.Mutation.mutate_pure_expression(pure_ex, Number, CodeRegression.Stages.Mutation.__MutationContext(init_f))
                 @test string(pure_ex) != string(res) # should change something
 
                 pure_ex = :(x + (y * z))
-                res = CodeRegression.Stages.Mutation.Naive.mutate_pure_expression(pure_ex, Number, CodeRegression.Stages.Mutation.__MutationContext(init_f))
+                res = CodeRegression.Stages.Mutation.mutate_pure_expression(pure_ex, Number, CodeRegression.Stages.Mutation.__MutationContext(init_f))
                 @test string(pure_ex) != string(res) # should change something
 
                 pure_ex = :(-_cw_(1.0))
-                res = CodeRegression.Stages.Mutation.Naive.mutate_pure_expression(pure_ex, Number, CodeRegression.Stages.Mutation.__MutationContext(init_f))
+                res = CodeRegression.Stages.Mutation.mutate_pure_expression(pure_ex, Number, CodeRegression.Stages.Mutation.__MutationContext(init_f))
                 @test string(pure_ex) != string(res) # should change something
 
                 pure_ex = :(f(_cw_(1.0), x+x, y))
-                res = CodeRegression.Stages.Mutation.Naive.mutate_pure_expression(pure_ex, Number, CodeRegression.Stages.Mutation.__MutationContext(init_f))
+                res = CodeRegression.Stages.Mutation.mutate_pure_expression(pure_ex, Number, CodeRegression.Stages.Mutation.__MutationContext(init_f))
                 @test string(pure_ex) != string(res) # should change something
 
                 pure_ex = :(f_dummy2(_cw_(1.0), x+x, y))
-                res = CodeRegression.Stages.Mutation.Naive.mutate_pure_expression(pure_ex, DummyDataType2_test, CodeRegression.Stages.Mutation.__MutationContext(init_f))
+                res = CodeRegression.Stages.Mutation.mutate_pure_expression(pure_ex, DummyDataType2_test, CodeRegression.Stages.Mutation.__MutationContext(init_f))
                 @test string(pure_ex) != string(res) # should change something
             end
 
             pure_ex = :(f_int(_cw_(1), _cw_(2), y))
-            res = CodeRegression.Stages.Mutation.Naive.mutate_pure_expression(pure_ex, Number, CodeRegression.Stages.Mutation.__MutationContext(init_f))
+            res = CodeRegression.Stages.Mutation.mutate_pure_expression(pure_ex, Number, CodeRegression.Stages.Mutation.__MutationContext(init_f))
             # shouldn't throw errors
         end
 
@@ -475,6 +494,7 @@ end
             #=all_ops=#mpe_test_allowed_ops, 
             #=expr_gen_depth=#3,
             #=apply_mutate_to_pure_exprs=#false, 
+            Truncation(0,0), # dummy selection
             #=apply_literal_optim=#false, 
             #=literal_optim_iters=#0,
             #=_candidate_function_criterion_type=#Float64);
@@ -483,10 +503,10 @@ end
             for seed in mpe_test_seeds
                 Random.seed!(seed)
 
-                res = CodeRegression.Stages.Mutation.Naive.mutate_pure_expression(:(_cw_(123123.123123)), Number, CodeRegression.Stages.Mutation.__MutationContext(init_f))
+                res = CodeRegression.Stages.Mutation.mutate_pure_expression(:(_cw_(123123.123123)), Number, CodeRegression.Stages.Mutation.__MutationContext(init_f))
                 @test !occursin("_cw_(123123.123123)", string(res)) # with !
 
-                res = CodeRegression.Stages.Mutation.Naive.mutate_pure_expression(:(sampletext), Number, CodeRegression.Stages.Mutation.__MutationContext(init_f))
+                res = CodeRegression.Stages.Mutation.mutate_pure_expression(:(sampletext), Number, CodeRegression.Stages.Mutation.__MutationContext(init_f))
                 @test !occursin("sampletext", string(res)) # with !
             end
         end
