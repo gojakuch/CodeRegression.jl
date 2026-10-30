@@ -6,7 +6,7 @@ include("finding_functions_objectives.jl");
 
 target_f = abs # abs, sign, identity; — all work here
 
-allowed_ops = Dict{DataType, Vector{AllowedOperationDescription}}(
+allowed_ops = Dict{Type, Vector{AllowedOperationDescription}}(
     Bool => [
         AllowedOperationDescription(
             :(<), 
@@ -32,25 +32,27 @@ algparams, init_f = CodeRegression.init(
     #=all_ops=#allowed_ops, 
     #=expr_gen_depth=#3,
     #=apply_mutate_to_pure_exprs=#false,
+    #=selection_backend=#Truncation(#=max_size=#50, #=new_size=#10),
     #=apply_literal_optim=#false, 
     #=literal_optim_iters=#0,
     #=_candidate_function_criterion_type=#Float64);
 par_types = Tuple(algparams.f_arg_types);
-candidates = CandidateFunction{Float64}[init_f];
-max_size = 50;
-trim_size = 10;
+candidates = [init_f];
 iters = 15;
 reproducing_pairs = 8;
 
 Random.seed!(1);
 for it in 1:iters
-    # mutate
+    # mutation stage
     mutants = mutate.(candidates)
     candidates = cat(candidates, mutants; dims=1)
 
-    # crossover
-    # TODO: PROPER SELECTION STAGE AND REPRODUCTION + SELECTION MATCHING
-    children = CandidateFunction{Float64}[]
+    # selection stage
+    objective!(target_f, candidates)
+    candidates = select(candidates)
+
+    # crossover stage
+    children = empty(candidates)
     for rp in 1:reproducing_pairs
         if rp+1 > length(candidates)
             break
@@ -60,15 +62,11 @@ for it in 1:iters
         push!(children, crossover(parent1, parent2))
     end
     candidates = cat(candidates, children; dims=1)
-
-    # compute objectives and sort
-    generate_callable!.(candidates)
-    objective!(target_f, candidates)
-    sort!(candidates; lt=(x, y)->(isless(x.criterion, y.criterion)))
-    if length(candidates) > max_size
-        candidates = candidates[1:trim_size]
-    end
 end
+
+# sort again before choosing the best one
+objective!(target_f, candidates);
+sort!(candidates; lt=(x,y)->isless(x.criterion, y.criterion)); 
 
 println(candidates[1].fdecl)
 println(candidates[1].criterion)
