@@ -64,15 +64,27 @@ end
                     (target_f = sign, 
                         iters = 15, 
                         seeds = (QUICK_TEST ? (20,) : (20, 200, 20000)), 
-                        fraction_to_pass=0.61),
+                        fraction_to_pass=0.61,
+                        selection_backend=Truncation(50, 10),
+                        prec=0.01),
                     (target_f = identity, 
                         iters = 15, 
                         seeds = (QUICK_TEST ? (2,) : (2, 20, 200)),
-                        fraction_to_pass=0.61),
+                        fraction_to_pass=0.61,
+                        selection_backend=Truncation(50, 10),
+                        prec=0.01),
                     (target_f = abs, 
                         iters = 30, # TODO: reduce this again once the genetic algorithm gets better
                         seeds = (QUICK_TEST ? (3,) : (1, 2, 3, 5)),
-                        fraction_to_pass=0.5),
+                        fraction_to_pass=0.5,
+                        selection_backend=Truncation(50, 10),
+                        prec=0.01),
+                    (target_f = sign, 
+                        iters = 15,
+                        seeds = (QUICK_TEST ? (3,) : (1, 2, 3, 4)),
+                        fraction_to_pass=0.5,
+                        selection_backend=Tournament(50, 10, 5),
+                        prec=0.01),
                 ]
             target_f = test_param_set.target_f
             iters = test_param_set.iters
@@ -85,7 +97,7 @@ end
                 #=all_ops=#allowed_ops, 
                 #=mutation_backend=#NaiveMutation(#=expr_gen_depth=#3),
                 #=crossover_backend=#SimpleMyers(),
-                #=selection_backend=#Truncation(#=max_size=#50, #=new_size=#10),
+                #=selection_backend=#test_param_set.selection_backend,
                 #=apply_literal_optim=#false, 
                 #=literal_optim_iters=#0,
                 #=_candidate_function_criterion_type=#Float64);
@@ -112,7 +124,7 @@ end
                     candidates = select(candidates)
                     # we need to do that when the objective is computed and also it's sorted then. we also repeat this check after all iters.
                     best_criterion, best_idx = candidates[1].criterion, 1
-                    if best_criterion < 0.01
+                    if best_criterion < test_param_set.prec
                         res = true
                         break
                     end
@@ -132,7 +144,7 @@ end
 
                 # duplicate here unfortunately
                 best_criterion, best_idx = best_criterion_idx(candidates)
-                if best_criterion < 0.01
+                if best_criterion < test_param_set.prec
                     res = true
                 end
 
