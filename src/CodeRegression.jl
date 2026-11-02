@@ -6,7 +6,7 @@ module CodeRegression
 
     module Utils
         include("Utils/expressions.jl")
-        export SelectionAlgorithmBackend, ConstsAndExprs, AllowedOperationDescription, AlgorithmParameters, CandidateFunction, init
+        export MutationAlgorithmBackend, CrossoverAlgorithmBackend, SelectionAlgorithmBackend, ConstsAndExprs, AllowedOperationDescription, AlgorithmParameters, CandidateFunction, init
 
         include("Utils/utils.jl")
         export generate_callable!, check_expr_type, is_stmt, get_body, get_signature, get_symbol_type_pair, get_args, get_arg_types, general_type, get_return_type, _cw_, make_const_wrap
@@ -43,25 +43,23 @@ module CodeRegression
         export ParamLiteralCandidateFunction, swap_literals_with_params, optimize_literals! 
 
         module Crossover
+            using CodeRegression.Utils
+            
             module Core
                 using CodeRegression.Utils
-            end
-            using .Core
-
-            # actual algorithms
-            module SimpleMyers
-                using ..Core
-                using CodeRegression.Utils
-                include("Stages/Crossover/SimpleMyers/crossover.jl") # TODO: should define SimpleMyers as a struct (like Selection)
+                include("Stages/Crossover/Core/crossover_core.jl")
 
                 export crossover
             end
-            using .SimpleMyers
+            using .Core
+            import .Core: crossover
 
-            export crossover
+            # actual algorithms
+            include("Stages/Crossover/SimpleMyers/simple_myers.jl")
+            export SimpleMyers, crossover
         end
         using .Crossover
-        export crossover
+        export crossover, SimpleMyers
 
         module Mutation
             using CodeRegression.Utils
@@ -78,16 +76,17 @@ module CodeRegression
 
                 include("Stages/Mutation/Core/mutation_core.jl")
 
-                export __MutationContext, generate_stmt # only this
+                export __MutationContext, generate_stmt, mutate
             end
             using .Core
+            import .Core: mutate
 
             # actual algorithms
-            include("Stages/Mutation/Naive/naive.jl") # TODO: should define Naive as a struct (like Selection)
-            export mutate, mutate!
+            include("Stages/Mutation/Naive/naive.jl")
+            export mutate, NaiveMutation
         end
         using .Mutation
-        export mutate, mutate!
+        export mutate, NaiveMutation
 
         module Selection
             using CodeRegression.Utils
@@ -111,7 +110,10 @@ module CodeRegression
         export select, Truncation, Tournament
     end
     using .Stages
-    export swap_literals_with_params, optimize_literals!, crossover, mutate, mutate!, select, Truncation, Tournament
+    export swap_literals_with_params, optimize_literals!
+    export crossover, SimpleMyers
+    export mutate, NaiveMutation
+    export select, Truncation, Tournament
 
     module Pipelines
         include("Pipelines/instance1.jl") # TODO

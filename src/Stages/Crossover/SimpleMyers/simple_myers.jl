@@ -1,5 +1,7 @@
 using Random
 
+struct SimpleMyers <: CrossoverAlgorithmBackend end
+
 function myers(A, B)
     # :match: An element in A aligns/matches an element in B.
     # :delete: An element exists in A but has no matching alignment in B (removed from A).
@@ -90,20 +92,20 @@ function backtrack(trace, A, B, total_D)
 end
 
 # Leaf node fallback (symbols, literals, numbers)
-crossover(a, b) = rand() > 0.5 ? deepcopy(a) : deepcopy(b)
+crossover(a, b, ::SimpleMyers) = rand() > 0.5 ? deepcopy(a) : deepcopy(b)
 
-function crossover(cf1::CandidateFunction{CriterionType, A}, cf2::CandidateFunction{CriterionType, A})::CandidateFunction{CriterionType, A} where {CriterionType, A}
+function crossover(cf1::CandidateFunction{CriterionType, A}, cf2::CandidateFunction{CriterionType, A}, smb::SimpleMyers)::CandidateFunction{CriterionType, A} where {CriterionType, A}
     body1 = get_body(cf1.fdecl)
     body2 = get_body(cf2.fdecl)
 
     new_function_decl = copy(cf1.fdecl)
-    new_function_decl.args[2] = crossover(body1, body2)
+    new_function_decl.args[2] = crossover(body1, body2, smb)
     new_cf = CandidateFunction{CriterionType, A}(new_function_decl, cf1.algparams_ref)
     generate_callable!(new_cf)
     return new_cf
 end
 
-function crossover(e1::Expr, e2::Expr)::Expr
+function crossover(e1::Expr, e2::Expr, smb::SimpleMyers)::Expr
     if e1.head != e2.head
         return rand() > 0.5 ? deepcopy(e1) : deepcopy(e2) 
     end
@@ -111,7 +113,7 @@ function crossover(e1::Expr, e2::Expr)::Expr
     if e1.head == (:call) && e1.args[1] == e2.args[1] && length(e1.args) == length(e2.args) # a call to the same function with the same number of arguments
         res = deepcopy(e1)
         for i in 2:length(e1.args)
-            res.args[i] = crossover(e1.args[i], e2.args[i])
+            res.args[i] = crossover(e1.args[i], e2.args[i], smb)
         end
         return res
     end
@@ -123,7 +125,7 @@ function crossover(e1::Expr, e2::Expr)::Expr
         idx2 = 1
         for m in matching
             if m == :match
-                push!(res.args, crossover(e1.args[idx1], e2.args[idx2]))
+                push!(res.args, crossover(e1.args[idx1], e2.args[idx2], smb))
                 idx1 += 1
                 idx2 += 1
             elseif m == :insert
@@ -154,7 +156,7 @@ function crossover(e1::Expr, e2::Expr)::Expr
     if is_stmt(e1)
         res = deepcopy(e1)
         for i in eachindex(e1.args)
-            res.args[i] = crossover(e1.args[i], e2.args[i])
+            res.args[i] = crossover(e1.args[i], e2.args[i], smb)
         end
         return res
     end

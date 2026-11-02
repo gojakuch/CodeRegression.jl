@@ -4,8 +4,6 @@
 # """
 # abstract type SelectionAlgorithmBackend end
 
-select(::Vector{CandidateFunction}, ::SelectionAlgorithmBackend)::Vector{CandidateFunction} = throw("`select` got abstract type `SelectionAlgorithmBackend` and not an actual backend implementation type")
-
 """
     this is the simplest overload of `select` that the user usually ought to use. it uses the preferred selection method from the `AlgorithmParameters` object available from the first `CandidateFunction` in the given array
 """

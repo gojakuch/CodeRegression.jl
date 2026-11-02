@@ -5,6 +5,18 @@ import RuntimeGeneratedFunctions: RuntimeGeneratedFunction
 RuntimeGeneratedFunctions.init(@__MODULE__)
 
 """
+    all mutation algorithm implementations must inherit from this type.
+"""
+abstract type MutationAlgorithmBackend end
+
+
+"""
+    all crossover algorithm implementations must inherit from this type.
+"""
+abstract type CrossoverAlgorithmBackend end
+
+
+"""
     all selection algorithm implementations must inherit from this type.
 """
 abstract type SelectionAlgorithmBackend end
@@ -70,6 +82,7 @@ end
 Describe the search algorithm and the function signature used by generation, mutation, merging, and literal optimization.
 
 # Type arguments
+- CrossoverType<:CrossoverAlgorithmBackend
 - SelectionType<:SelectionAlgorithmBackend
 
 # Fields
@@ -78,69 +91,33 @@ Describe the search algorithm and the function signature used by generation, mut
 - `all_ops::Dict{Type, Vector{AllowedOperationDescription}}`: Operations grouped by result type.
 - `expr_gen_depth::Int`: Number of expression-generation rounds.
 - `apply_mutate_to_pure_exprs::Bool`: Whether pure expressions may be recursively changed.
+- `crossover_backend::CrossoverType`: The backend to use for the crossover stage.
 - `selection_backend::SelectionType`: The backend to use for the selection stage.
 - `apply_literal_optim::Bool`: Whether literal optimization is enabled by the pipeline.
 - `literal_optim_iters::Int`: Number of literal-optimization iterations.
 """
-struct AlgorithmParameters{SelectionType<:SelectionAlgorithmBackend}
+struct AlgorithmParameters{
+        MutationType<:MutationAlgorithmBackend, 
+        CrossoverType<:CrossoverAlgorithmBackend, 
+        SelectionType<:SelectionAlgorithmBackend
+    }
+
     # problem setup details (function signature)
     f_arg_types::NamedTuple
     f_return_type::Type
+
     # algorithm details
     all_ops::Dict{Type, Vector{AllowedOperationDescription}}
-    expr_gen_depth::Int
-    apply_mutate_to_pure_exprs::Bool
+    # stages:
+    ## mutation
+    mutation_backend::MutationType
+    ## crossover
+    crossover_backend::CrossoverType
     ## selection
     selection_backend::SelectionType
     ## literal optimisation
     apply_literal_optim::Bool
     literal_optim_iters::Int
-
-    # internal fields (set up through constructors and initialisation automatically, no user input needed)
-    _type_preserving_ops::Dict{Type, Vector{Pair{AllowedOperationDescription, Vector{Int}}}} # for pure expression mutation. only set if apply_mutate_to_pure_exprs==true. the value pair is an operation and a list with indeces of all its parameters of the same type as the one returned.
-
-    # constructors
-    function AlgorithmParameters(
-        _f_arg_types::NamedTuple,
-        _f_return_type::Type,
-        _all_ops::Dict{Type, Vector{AllowedOperationDescription}},
-        _expr_gen_depth::Int,
-        _apply_mutate_to_pure_exprs::Bool,
-        _selection_backend::SelectionT,
-        _apply_literal_optim::Bool,
-        _literal_optim_iters::Int,
-    ) where SelectionT <: SelectionAlgorithmBackend
-        _type_preserving_ops = Dict{Type, Vector{Pair{AllowedOperationDescription, Vector{Int}}}}()
-        if _apply_mutate_to_pure_exprs
-            for (rtype, ops) in _all_ops
-                _type_preserving_ops[rtype] = AllowedOperationDescription[]
-                for op in ops
-                    op_added = false
-                    idx_arr = Int[]
-                    for p_i in eachindex(op.params)
-                        if op.params[p_i].type == rtype # assumes that both types are already generalised
-                            if !op_added
-                                push!(_type_preserving_ops[rtype], (op => idx_arr))
-                                op_added = true
-                            end
-                            push!(idx_arr, p_i)
-                        end
-                    end
-                end
-            end
-        end
-        new{SelectionT}(
-            _f_arg_types,
-            _f_return_type,
-            _all_ops,
-            _expr_gen_depth,
-            _apply_mutate_to_pure_exprs,
-            _selection_backend,
-            _apply_literal_optim,
-            _literal_optim_iters,
-            _type_preserving_ops,
-        )
-    end
 end
 
 
@@ -180,19 +157,19 @@ function init(
     _initial_fdecl::Expr, 
     _f_return_type::Type, 
     _all_ops::Dict{Type, Vector{AllowedOperationDescription}}, 
-    _expr_gen_depth::Int, 
-    _apply_mutate_to_pure_exprs::Bool, 
+    _mutation_backend::MutationType,
+    _crossover_backend::CrossoverType,
     _selection_backend::SelectionType,
     _apply_literal_optim::Bool, 
     _literal_optim_iters::Int, 
     ::Type{CT}
-) where {CT, SelectionType <: SelectionAlgorithmBackend}
+) where {MutationType <: MutationAlgorithmBackend, CrossoverType <: CrossoverAlgorithmBackend, SelectionType <: SelectionAlgorithmBackend, CT}
     algparams = AlgorithmParameters(
         get_arg_types(_initial_fdecl),
         _f_return_type,
         _all_ops,
-        _expr_gen_depth,
-        _apply_mutate_to_pure_exprs,
+        _mutation_backend,
+        _crossover_backend,
         _selection_backend,
         _apply_literal_optim,
         _literal_optim_iters
