@@ -30,9 +30,10 @@ algparams, init_f = CodeRegression.init(
     end), 
     #=return_type=#Float64,  
     #=all_ops=#allowed_ops, 
-    #=expr_gen_depth=#3,
-    #=apply_mutate_to_pure_exprs=#false,
+    #=mutation_backend=#NaiveMutation(#=expr_gen_depth=#3),
+    #=crossover_backend=#SimpleMyers(),
     #=selection_backend=#Truncation(#=max_size=#50, #=new_size=#10),
+    ##=selection_backend=#Tournament(#=max_size=#50, #=new_size=#10, 5),
     #=apply_literal_optim=#false, 
     #=literal_optim_iters=#0,
     #=_candidate_function_criterion_type=#Float64);

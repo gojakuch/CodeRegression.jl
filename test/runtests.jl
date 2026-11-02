@@ -22,9 +22,9 @@ else
     println("\n\nContinuing the tests even if the required test fraction to pass has already been achieved! To enable stopping, set:\n`julia> ENV[\"REQUIRED_FRACTION_ONLY\"]=\"true\"`\n")
 end
 
-struct DummyDataType_test
+struct DummyType_test
 end
-struct DummyDataType2_test
+struct DummyType2_test
 end
 
 function best_criterion_idx(candidates::Vector{CandidateFunction{C,A}}) where {C,A}
@@ -83,8 +83,8 @@ end
                 end), 
                 #=return_type=#Float64,  
                 #=all_ops=#allowed_ops, 
-                #=expr_gen_depth=#3,
-                #=apply_mutate_to_pure_exprs=#false,
+                #=mutation_backend=#NaiveMutation(#=expr_gen_depth=#3),
+                #=crossover_backend=#SimpleMyers(),
                 #=selection_backend=#Truncation(#=max_size=#50, #=new_size=#10),
                 #=apply_literal_optim=#false, 
                 #=literal_optim_iters=#0,
@@ -179,7 +179,7 @@ end
                     end
                     return -x
                 end),
-            Float64,  Dict{Type, Vector{AllowedOperationDescription}}(), 0, false, Truncation(0,0), false, 0, Float64)
+            Float64,  Dict{Type, Vector{AllowedOperationDescription}}(), NaiveMutation(0), SimpleMyers(), Truncation(0,0), false, 0, Float64)
             cff_backup = deepcopy(cff)
             
             p = swap_literals_with_params(cff)
@@ -207,7 +207,7 @@ end
                     end
                     return -x
                 end), 
-            Float64,  Dict{Type, Vector{AllowedOperationDescription}}(), 0, false, Truncation(0,0), false, 0, Float64)
+            Float64,  Dict{Type, Vector{AllowedOperationDescription}}(), NaiveMutation(0), SimpleMyers(), Truncation(0,0), false, 0, Float64)
             p = swap_literals_with_params(cff)
             xs = -2:0.001:2
             loss = function(f)
@@ -230,7 +230,7 @@ end
                 end
                 return _cw_(-1.2)
             end),
-        Float64,  Dict{Type, Vector{AllowedOperationDescription}}(), 0, false, Truncation(0,0), false, 0, Float64)
+        Float64,  Dict{Type, Vector{AllowedOperationDescription}}(), NaiveMutation(0), SimpleMyers(), Truncation(0,0), false, 0, Float64)
         p = swap_literals_with_params(cff)
         xs = -2:0.01:2
         loss = function(f)
@@ -280,9 +280,9 @@ end
                         return _cw_(1.0)
                     end), 
                     #=return_type=#Float64,  
-                    #=all_ops=#allowed_ops, 
-                    #=expr_gen_depth=#3,
-                    #=apply_mutate_to_pure_exprs=#false,
+                    #=all_ops=#allowed_ops,  
+                    #=mutation_backend=#NaiveMutation(#=expr_gen_depth=#3),
+                    #=crossover_backend=#SimpleMyers(),
                     #=selection_backend=#Truncation(#=max_size=#50, #=new_size=#10),
                     #=apply_literal_optim=#true, 
                     #=literal_optim_iters=#50,
@@ -406,21 +406,22 @@ end
                     NamedTuple[(type=Int, can_be_const=true)]
                 ),
             ],
-            DummyDataType2_test => [
+            DummyType2_test => [
                 AllowedOperationDescription(
                     :(f_dummy2), 
                     NamedTuple[(type=Number, can_be_const=true), (type=Number, can_be_const=true), (type=Number, can_be_const=false)]
                 ),
             ],
         )
+        naive_mutation_backend_spec = NaiveMutation(#=expr_gen_depth=#3, true, mpe_test_allowed_ops)
         _, init_f = CodeRegression.init(
             #=initial_fdecl=# :(function (x::Float64, y::Float64)
                 return 1
             end), 
             #=return_type=#Float64,  
-            #=all_ops=#mpe_test_allowed_ops, 
-            #=expr_gen_depth=#3,
-            #=apply_mutate_to_pure_exprs=#true,
+            #=all_ops=#mpe_test_allowed_ops,  
+            #=mutation_backend=#naive_mutation_backend_spec,
+            #=crossover_backend=#SimpleMyers(),
             Truncation(0,0), # dummy selection
             #=apply_literal_optim=#false, 
             #=literal_optim_iters=#0,
@@ -430,27 +431,27 @@ end
             for seed in mpe_test_seeds
                 Random.seed!(seed)
 
-                res = CodeRegression.Stages.Mutation.mutate_pure_expression(:(_cw_(123123.123123)), Number, CodeRegression.Stages.Mutation.__MutationContext(init_f))
+                res = CodeRegression.Stages.Mutation.mutate_pure_expression(:(_cw_(123123.123123)), Number, CodeRegression.Stages.Mutation.__MutationContext(init_f), naive_mutation_backend_spec)
                 @test occursin("_cw_(123123.123123)", string(res))
 
-                res = CodeRegression.Stages.Mutation.mutate_pure_expression(:(sampletext), Number, CodeRegression.Stages.Mutation.__MutationContext(init_f))
+                res = CodeRegression.Stages.Mutation.mutate_pure_expression(:(sampletext), Number, CodeRegression.Stages.Mutation.__MutationContext(init_f), naive_mutation_backend_spec)
                 @test occursin("sampletext", string(res))
             end
         end
 
         @testset "`mutate_pure_expression` test (handling a type with no proper operations)" begin
             pure_ex = :(string(1))
-            res = CodeRegression.Stages.Mutation.mutate_pure_expression(pure_ex, String, CodeRegression.Stages.Mutation.__MutationContext(init_f))
+            res = CodeRegression.Stages.Mutation.mutate_pure_expression(pure_ex, String, CodeRegression.Stages.Mutation.__MutationContext(init_f), naive_mutation_backend_spec)
             @test string(pure_ex) == string(res) # shouldn't mutate, as there's no option to mutate Integers
 
-            res = CodeRegression.Stages.Mutation.mutate_pure_expression(:("sampletext"), String, CodeRegression.Stages.Mutation.__MutationContext(init_f))
+            res = CodeRegression.Stages.Mutation.mutate_pure_expression(:("sampletext"), String, CodeRegression.Stages.Mutation.__MutationContext(init_f), naive_mutation_backend_spec)
             @test occursin("sampletext", string(res)) # shouldn't mutate, as there's no option to mutate Strings
 
-            res = CodeRegression.Stages.Mutation.mutate_pure_expression(:([1, 2]), Array{Int, 2}, CodeRegression.Stages.Mutation.__MutationContext(init_f))
+            res = CodeRegression.Stages.Mutation.mutate_pure_expression(:([1, 2]), Array{Int, 2}, CodeRegression.Stages.Mutation.__MutationContext(init_f), naive_mutation_backend_spec)
             @test occursin("[1, 2]", string(res)) # shouldn't mutate, as the type is not listed
 
             pure_ex = :(abcdefg(0,1,2))
-            res = CodeRegression.Stages.Mutation.mutate_pure_expression(pure_ex, DummyDataType_test, CodeRegression.Stages.Mutation.__MutationContext(init_f))
+            res = CodeRegression.Stages.Mutation.mutate_pure_expression(pure_ex, DummyType_test, CodeRegression.Stages.Mutation.__MutationContext(init_f), naive_mutation_backend_spec)
             @test string(pure_ex) == string(res) # shouldn't mutate, as the type is not listed
         end
 
@@ -459,31 +460,32 @@ end
                 Random.seed!(seed)
 
                 pure_ex = :(_cw_(2.0) + _cw_(1.0))
-                res = CodeRegression.Stages.Mutation.mutate_pure_expression(pure_ex, Number, CodeRegression.Stages.Mutation.__MutationContext(init_f))
+                res = CodeRegression.Stages.Mutation.mutate_pure_expression(pure_ex, Number, CodeRegression.Stages.Mutation.__MutationContext(init_f), naive_mutation_backend_spec)
                 @test string(pure_ex) != string(res) # should change something
 
                 pure_ex = :(x + (y * z))
-                res = CodeRegression.Stages.Mutation.mutate_pure_expression(pure_ex, Number, CodeRegression.Stages.Mutation.__MutationContext(init_f))
+                res = CodeRegression.Stages.Mutation.mutate_pure_expression(pure_ex, Number, CodeRegression.Stages.Mutation.__MutationContext(init_f), naive_mutation_backend_spec)
                 @test string(pure_ex) != string(res) # should change something
 
                 pure_ex = :(-_cw_(1.0))
-                res = CodeRegression.Stages.Mutation.mutate_pure_expression(pure_ex, Number, CodeRegression.Stages.Mutation.__MutationContext(init_f))
+                res = CodeRegression.Stages.Mutation.mutate_pure_expression(pure_ex, Number, CodeRegression.Stages.Mutation.__MutationContext(init_f), naive_mutation_backend_spec)
                 @test string(pure_ex) != string(res) # should change something
 
                 pure_ex = :(f(_cw_(1.0), x+x, y))
-                res = CodeRegression.Stages.Mutation.mutate_pure_expression(pure_ex, Number, CodeRegression.Stages.Mutation.__MutationContext(init_f))
+                res = CodeRegression.Stages.Mutation.mutate_pure_expression(pure_ex, Number, CodeRegression.Stages.Mutation.__MutationContext(init_f), naive_mutation_backend_spec)
                 @test string(pure_ex) != string(res) # should change something
 
                 pure_ex = :(f_dummy2(_cw_(1.0), x+x, y))
-                res = CodeRegression.Stages.Mutation.mutate_pure_expression(pure_ex, DummyDataType2_test, CodeRegression.Stages.Mutation.__MutationContext(init_f))
+                res = CodeRegression.Stages.Mutation.mutate_pure_expression(pure_ex, DummyType2_test, CodeRegression.Stages.Mutation.__MutationContext(init_f), naive_mutation_backend_spec)
                 @test string(pure_ex) != string(res) # should change something
             end
 
             pure_ex = :(f_int(_cw_(1), _cw_(2), y))
-            res = CodeRegression.Stages.Mutation.mutate_pure_expression(pure_ex, Number, CodeRegression.Stages.Mutation.__MutationContext(init_f))
+            res = CodeRegression.Stages.Mutation.mutate_pure_expression(pure_ex, Number, CodeRegression.Stages.Mutation.__MutationContext(init_f), naive_mutation_backend_spec)
             # shouldn't throw errors
         end
 
+        naive_mutation_backend_spec_false = NaiveMutation(#=expr_gen_depth=#3)
         # now, we set apply_mutate_to_pure_exprs=false
         _, init_f = CodeRegression.init(
             #=initial_fdecl=# :(function (x::Float64, y::Float64)
@@ -491,8 +493,8 @@ end
             end), 
             #=return_type=#Float64,  
             #=all_ops=#mpe_test_allowed_ops, 
-            #=expr_gen_depth=#3,
-            #=apply_mutate_to_pure_exprs=#false, 
+            #=mutation_backend=#naive_mutation_backend_spec_false,
+            #=crossover_backend=#SimpleMyers(),
             Truncation(0,0), # dummy selection
             #=apply_literal_optim=#false, 
             #=literal_optim_iters=#0,
@@ -502,10 +504,10 @@ end
             for seed in mpe_test_seeds
                 Random.seed!(seed)
 
-                res = CodeRegression.Stages.Mutation.mutate_pure_expression(:(_cw_(123123.123123)), Number, CodeRegression.Stages.Mutation.__MutationContext(init_f))
+                res = CodeRegression.Stages.Mutation.mutate_pure_expression(:(_cw_(123123.123123)), Number, CodeRegression.Stages.Mutation.__MutationContext(init_f), naive_mutation_backend_spec_false)
                 @test !occursin("_cw_(123123.123123)", string(res)) # with !
 
-                res = CodeRegression.Stages.Mutation.mutate_pure_expression(:(sampletext), Number, CodeRegression.Stages.Mutation.__MutationContext(init_f))
+                res = CodeRegression.Stages.Mutation.mutate_pure_expression(:(sampletext), Number, CodeRegression.Stages.Mutation.__MutationContext(init_f), naive_mutation_backend_spec_false)
                 @test !occursin("sampletext", string(res)) # with !
             end
         end
