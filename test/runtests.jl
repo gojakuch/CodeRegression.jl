@@ -28,6 +28,80 @@ struct DummyDataType2_test
 end
 
 @testset verbose=true "tests" begin
+    @testset "static statement generation weights" begin
+        weights = Dict(:assignment => 1.0, :return => 0.0, :if => 0.0)
+        algparams, _ = CodeRegression.init(
+            :(function (x::Float64)
+                return x
+            end),
+            Float64,
+            Dict{DataType, Vector{AllowedOperationDescription}}(),
+            0,
+            false,
+            false,
+            0,
+            Float64;
+            statement_weights=weights,
+        )
+        all_exprs = CodeRegression.Stages.Mutation.Core.Generation.generate_exprs(algparams)
+        all_exprs[Bool] = CodeRegression.Utils.ConstsAndExprs(Expr[], Any[:(x > 0)])
+
+        @test algparams.statement_weights == weights
+        for _ in 1:20
+            statement = CodeRegression.Stages.Mutation.Core.Generation.generate_stmt(all_exprs, algparams)
+            @test statement.head == :(=)
+        end
+        return_only, _ = CodeRegression.init(
+            :(function (x::Float64)
+                return x
+            end),
+            Float64,
+            Dict{DataType, Vector{AllowedOperationDescription}}(),
+            0,
+            false,
+            false,
+            0,
+            Float64;
+            statement_weights=Dict(:assignment => 0.0, :return => 1.0, :if => 0.0),
+        )
+        for _ in 1:20
+            statement = CodeRegression.Stages.Mutation.Core.Generation.generate_stmt(all_exprs, return_only)
+            @test statement.head == :return
+        end
+        if_only, _ = CodeRegression.init(
+            :(function (x::Float64)
+                return x
+            end),
+            Float64,
+            Dict{DataType, Vector{AllowedOperationDescription}}(),
+            0,
+            false,
+            false,
+            0,
+            Float64;
+            statement_weights=Dict(:assignment => 0.0, :return => 0.0, :if => 1.0),
+        )
+        for _ in 1:20
+            statement = CodeRegression.Stages.Mutation.Core.Generation.generate_stmt(all_exprs, if_only)
+            @test statement.head == :if
+        end
+        no_condition_exprs = CodeRegression.Stages.Mutation.Core.Generation.generate_exprs(if_only)
+        @test_throws ArgumentError CodeRegression.Stages.Mutation.Core.Generation.generate_stmt(no_condition_exprs, if_only)
+        @test_throws ArgumentError CodeRegression.init(
+            :(function (x::Float64)
+                return x
+            end),
+            Float64,
+            Dict{DataType, Vector{AllowedOperationDescription}}(),
+            0,
+            false,
+            false,
+            0,
+            Float64;
+            statement_weights=Dict(:unknown => 1.0),
+        )
+    end
+
     @testset "finding functions, fixed seeds" begin # code taken from examples/finding_functions.jl
         allowed_ops = Dict{DataType, Vector{AllowedOperationDescription}}(
             Bool => [

@@ -105,33 +105,47 @@ end
 
 
 """
-Generate a random statement node from the expression pool.
+Generate a random statement node from the expression pool based on weights.
 
-The produced statement is chosen from assignment, return, and conditional forms according to the available Boolean expressions and the current algorithm configuration.
+The produced statement is chosen from assignment,
+return, and conditional forms according to the available Boolean expressions
+and the current algorithm configuration.
 
 # Arguments
-- `all_exprs::Dict{DataType, ConstsAndExprs}`: Dictionary of typed expression pools, including Boolean expressions.
-- `algparams::AlgorithmParameters`: Expression pool containing generated values for each type.
+- `all_exprs::Dict{DataType, ConstsAndExprs}`: Dictionary of typed expression pools,
+including Boolean expressions.
+- `algparams::AlgorithmParameters`: Algorithm configuration containing the statement weights.
 
 # Returns
 - `Expr`: An expression representing an assignment, return, or conditional statement.
 """
 function generate_stmt(all_exprs::Dict{DataType, ConstsAndExprs}, algparams::AlgorithmParameters) # returns the statement
-    r = rand()
-    
-    if !isempty(all_exprs[Bool].exprs) # if-statement generation is possible
-        if(r < 0.25)
-            return generate_assignment(all_exprs, algparams)
-        elseif r < 0.5
-            return generate_return(all_exprs, algparams)
-        end
-        return generate_if(all_exprs, algparams)
+    generators = (
+        (:assignment, generate_assignment),
+        (:return, generate_return),
+        (:if, generate_if),
+    )
+    has_condition = !isempty(all_exprs[Bool].exprs)
+    weights = map(generators) do (kind, _)
+        kind == :if && !has_condition ? 0.0 : algparams.statement_weights[kind]
     end
 
-    if(r < 0.5)
-        return generate_assignment(all_exprs, algparams)
+    max_weight = maximum(weights)
+    max_weight > 0 || throw(ArgumentError("statement_weights must give positive weight to at least one currently available statement kind"))
+    scaled_weights = map(weight -> weight / max_weight, weights)
+    total_weight = sum(scaled_weights)
+
+    choice = rand()
+    cumulative_weight = 0.0
+    for (i, (_, generator)) in enumerate(generators)
+        cumulative_weight += scaled_weights[i] / total_weight
+        if choice < cumulative_weight
+            return generator(all_exprs, algparams)
+        end
     end
-    generate_return(all_exprs, algparams)
+
+    last_positive = findlast(weight -> weight > 0, weights)
+    generators[last_positive][2](all_exprs, algparams)
 end
 
 

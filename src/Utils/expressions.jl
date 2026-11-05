@@ -60,6 +60,13 @@ function AllowedOperationDescription(callee::Symbol, params::Vector{NamedTuple})
 end
 
 
+_default_statement_weights() = Dict(
+    :assignment => 1.0,
+    :return => 1.0,
+    :if => 2.0,
+)
+
+
 """
 Describe the search algorithm and the function signature used by generation, mutation, merging, and literal optimization.
 
@@ -71,11 +78,13 @@ Describe the search algorithm and the function signature used by generation, mut
 - `apply_mutate_to_pure_exprs::Bool`: Whether pure expressions may be recursively changed.
 - `apply_literal_optim::Bool`: Whether literal optimization is enabled by the pipeline.
 - `literal_optim_iters::Int`: Number of literal-optimization iterations.
+- `statement_weights::Dict{Symbol, Float64}`: Static relative weights for generated statement kinds.
 """
 struct AlgorithmParameters
     # problem setup details (function signature)
     f_arg_types::NamedTuple
     f_return_type::DataType
+    statement_weights::Dict{Symbol, Float64}
     # algorithm details
     all_ops::Dict{DataType, Vector{AllowedOperationDescription}}
     expr_gen_depth::Int
@@ -95,8 +104,18 @@ struct AlgorithmParameters
         _expr_gen_depth::Int,
         _apply_mutate_to_pure_exprs::Bool,
         _apply_literal_optim::Bool,
-        _literal_optim_iters::Int,
+        _literal_optim_iters::Int;
+        statement_weights::AbstractDict{Symbol, <:Real}=_default_statement_weights(),
     )
+        valid_statement_kinds = (:assignment, :return, :if)
+        normalized_statement_weights = _default_statement_weights()
+        for (kind, weight) in statement_weights
+            kind in valid_statement_kinds || throw(ArgumentError("unknown statement kind in statement_weights: $kind"))
+            normalized_weight = Float64(weight)
+            isfinite(normalized_weight) && normalized_weight >= 0 || throw(ArgumentError("statement weights must be finite and non-negative"))
+            normalized_statement_weights[kind] = normalized_weight
+        end
+
         _type_preserving_ops = Dict{DataType, Vector{Pair{AllowedOperationDescription, Vector{Int}}}}()
         if _apply_mutate_to_pure_exprs
             for (rtype, ops) in _all_ops
@@ -119,6 +138,7 @@ struct AlgorithmParameters
         new(
             _f_arg_types,
             _f_return_type,
+            normalized_statement_weights,
             _all_ops,
             _expr_gen_depth,
             _apply_mutate_to_pure_exprs,
@@ -151,7 +171,7 @@ mutable struct CandidateFunction{CriterionType}
 end
 
 function CandidateFunction{T}(fdecl::Expr, algparams_ref::AlgorithmParameters) where T
- CandidateFunction(fdecl, algparams_ref, nothing, Base.zero(T), false)
+    CandidateFunction(fdecl, algparams_ref, nothing, Base.zero(T), false)
 end
 
 
@@ -161,7 +181,17 @@ Create linked algorithm parameters and an initial candidate function.
 # Returns
 - `Tuple{AlgorithmParameters, CandidateFunction{_candidate_function_criterion_type}}`: The configuration and candidate sharing that configuration.
 """
-function init(_initial_fdecl::Expr, _f_return_type::DataType, _all_ops::Dict{DataType, Vector{AllowedOperationDescription}}, _expr_gen_depth::Int, _apply_mutate_to_pure_exprs::Bool, _apply_literal_optim::Bool, _literal_optim_iters::Int, _candidate_function_criterion_type::DataType)
+function init(
+    _initial_fdecl::Expr,
+    _f_return_type::DataType,
+    _all_ops::Dict{DataType, Vector{AllowedOperationDescription}},
+    _expr_gen_depth::Int,
+    _apply_mutate_to_pure_exprs::Bool,
+    _apply_literal_optim::Bool,
+    _literal_optim_iters::Int,
+    _candidate_function_criterion_type::DataType;
+    statement_weights::AbstractDict{Symbol, <:Real}=_default_statement_weights(),
+)
     algparams = AlgorithmParameters(
         get_arg_types(_initial_fdecl),
         _f_return_type,
@@ -169,7 +199,8 @@ function init(_initial_fdecl::Expr, _f_return_type::DataType, _all_ops::Dict{Dat
         _expr_gen_depth,
         _apply_mutate_to_pure_exprs,
         _apply_literal_optim,
-        _literal_optim_iters
+        _literal_optim_iters;
+        statement_weights,
     )
     return algparams, CandidateFunction{_candidate_function_criterion_type}(_initial_fdecl, algparams)
 end
