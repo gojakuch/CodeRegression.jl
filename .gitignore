@@ -25,3 +25,5 @@ LocalPreferences.toml
 JuliaLocalPreferences.toml
 
 .vscode
+AGENTS.md
+.env
