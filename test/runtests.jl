@@ -48,9 +48,10 @@ end
                 return x
             end),
             Float64,
-            Dict{DataType, Vector{AllowedOperationDescription}}(),
-            0,
-            false,
+            Dict{Type, Vector{AllowedOperationDescription}}(),
+            NaiveMutation(0),
+            SimpleMyers(),
+            Truncation(0, 0),
             false,
             0,
             Float64;
@@ -69,9 +70,10 @@ end
                 return x
             end),
             Float64,
-            Dict{DataType, Vector{AllowedOperationDescription}}(),
-            0,
-            false,
+            Dict{Type, Vector{AllowedOperationDescription}}(),
+            NaiveMutation(0),
+            SimpleMyers(),
+            Truncation(0, 0),
             false,
             0,
             Float64;
@@ -86,9 +88,10 @@ end
                 return x
             end),
             Float64,
-            Dict{DataType, Vector{AllowedOperationDescription}}(),
-            0,
-            false,
+            Dict{Type, Vector{AllowedOperationDescription}}(),
+            NaiveMutation(0),
+            SimpleMyers(),
+            Truncation(0, 0),
             false,
             0,
             Float64;
@@ -105,9 +108,10 @@ end
                 return x
             end),
             Float64,
-            Dict{DataType, Vector{AllowedOperationDescription}}(),
-            0,
-            false,
+            Dict{Type, Vector{AllowedOperationDescription}}(),
+            NaiveMutation(0),
+            SimpleMyers(),
+            Truncation(0, 0),
             false,
             0,
             Float64;

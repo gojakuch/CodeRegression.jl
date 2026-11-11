@@ -112,7 +112,7 @@ struct AlgorithmParameters{
 
     # problem setup details (function signature)
     f_arg_types::NamedTuple
-    f_return_type::DataType
+    f_return_type::Type
     statement_weights::Dict{Symbol, Float64}
     # algorithm details
     all_ops::Dict{Type, Vector{AllowedOperationDescription}}
@@ -127,20 +127,18 @@ struct AlgorithmParameters{
     apply_literal_optim::Bool
     literal_optim_iters::Int
 
-    # internal fields
-    _type_preserving_ops::Dict{DataType, Vector{Pair{AllowedOperationDescription, Vector{Int}}}} # for pure expression mutation. only set if apply_mutate_to_pure_exprs==true. the value pair is an operation and a list with indeces of all its parameters of the same type as the one returned.
-
     # constructors
     function AlgorithmParameters(
         _f_arg_types::NamedTuple,
-        _f_return_type::DataType,
-        _all_ops::Dict{DataType, Vector{AllowedOperationDescription}},
-        _expr_gen_depth::Int,
-        _apply_mutate_to_pure_exprs::Bool,
+        _f_return_type::Type,
+        _all_ops::Dict{Type, Vector{AllowedOperationDescription}},
+        _mutation_backend::MutationType,
+        _crossover_backend::CrossoverType,
+        _selection_backend::SelectionType,
         _apply_literal_optim::Bool,
         _literal_optim_iters::Int;
         statement_weights::AbstractDict{Symbol, <:Real}=_default_statement_weights(),
-    )
+    ) where {MutationType<:MutationAlgorithmBackend, CrossoverType<:CrossoverAlgorithmBackend, SelectionType<:SelectionAlgorithmBackend}
         valid_statement_kinds = (:assignment, :return, :if)
         normalized_statement_weights = _default_statement_weights()
         for (kind, weight) in statement_weights
@@ -150,35 +148,16 @@ struct AlgorithmParameters{
             normalized_statement_weights[kind] = normalized_weight
         end
 
-        _type_preserving_ops = Dict{DataType, Vector{Pair{AllowedOperationDescription, Vector{Int}}}}()
-        if _apply_mutate_to_pure_exprs
-            for (rtype, ops) in _all_ops
-                _type_preserving_ops[rtype] = AllowedOperationDescription[]
-                for op in ops
-                    op_added = false
-                    idx_arr = Int[]
-                    for p_i in eachindex(op.params)
-                        if op.params[p_i].type == rtype # assumes that both types are already generalised
-                            if !op_added
-                                push!(_type_preserving_ops[rtype], (op => idx_arr))
-                                op_added = true
-                            end
-                            push!(idx_arr, p_i)
-                        end
-                    end
-                end
-            end
-        end
-        new(
+        new{MutationType, CrossoverType, SelectionType}(
             _f_arg_types,
             _f_return_type,
             normalized_statement_weights,
             _all_ops,
-            _expr_gen_depth,
-            _apply_mutate_to_pure_exprs,
+            _mutation_backend,
+            _crossover_backend,
+            _selection_backend,
             _apply_literal_optim,
             _literal_optim_iters,
-            _type_preserving_ops,
         )
     end
 end
@@ -219,14 +198,14 @@ Create linked algorithm parameters and an initial candidate function.
 function init(
     _initial_fdecl::Expr,
     _f_return_type::Type,
-    _all_ops::Dict{DataType, Vector{AllowedOperationDescription}},
+    _all_ops::Dict{Type, Vector{AllowedOperationDescription}},
     _mutation_backend::MutationType,
     _crossover_backend::CrossoverType,
     _selection_backend::SelectionType,
     _apply_literal_optim::Bool,
     _literal_optim_iters::Int,
+    ::Type{CT};
     statement_weights::AbstractDict{Symbol, <:Real}=_default_statement_weights(),
-        ::Type{CT}
 ) where {MutationType <: MutationAlgorithmBackend, CrossoverType <: CrossoverAlgorithmBackend, SelectionType <: SelectionAlgorithmBackend, CT}
     algparams = AlgorithmParameters(
         get_arg_types(_initial_fdecl),
