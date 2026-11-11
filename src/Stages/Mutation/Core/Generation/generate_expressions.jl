@@ -5,15 +5,15 @@ Generate typed constant and non-constant expressions from the configured operati
 - `algparams::AlgorithmParameters`: Expression pool containing generated values for each type.
 
 # Returns
-- `Dict{DataType, ConstsAndExprs}`: Expressions grouped by generalized result type.
+- `Dict{Type, ConstsAndExprs}`: Expressions grouped by generalized result type.
 """
-function generate_exprs(algparams::AlgorithmParameters)::Dict{DataType, ConstsAndExprs}
+function generate_exprs(algparams::AlgorithmParamT)::Dict{Type, ConstsAndExprs} where {AlgorithmParamT <: AlgorithmParameters}
     arg_types = algparams.f_arg_types
     return_type = algparams.f_return_type
-    iters = algparams.expr_gen_depth
+    iters = algparams.mutation_backend.expr_gen_depth
     all_ops = algparams.all_ops
 
-    all_exprs = Dict{DataType, ConstsAndExprs}( # ALL OF THESE LISTS MUST BE NON-EMPTY
+    all_exprs = Dict{Type, ConstsAndExprs}( # ALL OF THESE LISTS MUST BE NON-EMPTY
         Bool => ConstsAndExprs(make_const_wrap.([true, false]), Any[]),
         Number => ConstsAndExprs(make_const_wrap.([0., 1.]), Any[])
     )
@@ -54,10 +54,10 @@ Generate one expression for each configured result type and append it to `all_ex
 This function mutates `all_exprs` in place by sampling operations from `algparams.all_ops` and storing newly generated ASTs under their generalized return type.
 
 # Arguments
-- `all_exprs::Dict{DataType, ConstsAndExprs}`: Dictionary of typed expression pools, including Boolean expressions.
+- `all_exprs::Dict{Type, ConstsAndExprs}`: Dictionary of typed expression pools, including Boolean expressions.
 - `algparams::AlgorithmParameters`: Expression pool containing generated values for each type.
 """
-function generate_op!(all_exprs::Dict{DataType, ConstsAndExprs}, algparams::AlgorithmParameters)
+function generate_op!(all_exprs::Dict{Type, ConstsAndExprs}, algparams::AlgorithmParamT) where AlgorithmParamT <: AlgorithmParameters
     all_ops = algparams.all_ops
 
     for (rtype, ops) in all_ops # generate some expressions for each available type
@@ -112,40 +112,28 @@ return, and conditional forms according to the available Boolean expressions
 and the current algorithm configuration.
 
 # Arguments
-- `all_exprs::Dict{DataType, ConstsAndExprs}`: Dictionary of typed expression pools,
-including Boolean expressions.
-- `algparams::AlgorithmParameters`: Algorithm configuration containing the statement weights.
+- `all_exprs::Dict{DataType, ConstsAndExprs}`: Dictionary of typed expression pools, including Boolean expressions.
+- `algparams::AlgorithmParameters`: Expression pool containing generated values for each type.
 
 # Returns
 - `Expr`: An expression representing an assignment, return, or conditional statement.
 """
 function generate_stmt(all_exprs::Dict{DataType, ConstsAndExprs}, algparams::AlgorithmParameters) # returns the statement
-    generators = (
-        (:assignment, generate_assignment),
-        (:return, generate_return),
-        (:if, generate_if),
-    )
-    has_condition = !isempty(all_exprs[Bool].exprs)
-    weights = map(generators) do (kind, _)
-        kind == :if && !has_condition ? 0.0 : algparams.statement_weights[kind]
-    end
-
-    max_weight = maximum(weights)
-    max_weight > 0 || throw(ArgumentError("statement_weights must give positive weight to at least one currently available statement kind"))
-    scaled_weights = map(weight -> weight / max_weight, weights)
-    total_weight = sum(scaled_weights)
-
-    choice = rand()
-    cumulative_weight = 0.0
-    for (i, (_, generator)) in enumerate(generators)
-        cumulative_weight += scaled_weights[i] / total_weight
-        if choice < cumulative_weight
-            return generator(all_exprs, algparams)
+    r = rand()
+    
+    if !isempty(all_exprs[Bool].exprs) # if-statement generation is possible
+        if(r < 0.25)
+            return generate_assignment(all_exprs, algparams)
+        elseif r < 0.5
+            return generate_return(all_exprs, algparams)
         end
+        return generate_if(all_exprs, algparams)
     end
 
-    last_positive = findlast(weight -> weight > 0, weights)
-    generators[last_positive][2](all_exprs, algparams)
+    if(r < 0.5)
+        return generate_assignment(all_exprs, algparams)
+    end
+    generate_return(all_exprs, algparams)
 end
 
 
@@ -155,14 +143,14 @@ Generate an assignment expression for a random argument of the target function.
 This helper samples an argument name from `algparams.f_arg_types` and assigns it an expression of the matching generalized type.
 
 # Arguments
-- `all_exprs::Dict{DataType, ConstsAndExprs}`: Dictionary of typed expression pools, including Boolean expressions.
+- `all_exprs::Dict{Type, ConstsAndExprs}`: Dictionary of typed expression pools, including Boolean expressions.
 - `algparams::AlgorithmParameters`: Expression pool containing generated values for each type.
 
 # Returns
 - Either `Expr`: An assignment expression of the form `var = value` or  `Nothing`
 
 """
-function generate_assignment(all_exprs::Dict{DataType, ConstsAndExprs}, algparams::AlgorithmParameters) # returns the statement
+function generate_assignment(all_exprs::Dict{Type, ConstsAndExprs}, algparams::AlgorithmParamT) where AlgorithmParamT <: AlgorithmParameters # returns the statement
     arg_types = algparams.f_arg_types
 
     if isempty(arg_types)
@@ -183,13 +171,13 @@ end
 Generate a return statement whose value matches the declared return type.
 
 # Arguments
-- `all_exprs::Dict{DataType, ConstsAndExprs}`: Dictionary of typed expression pools, including Boolean expressions.
+- `all_exprs::Dict{Type, ConstsAndExprs}`: Dictionary of typed expression pools, including Boolean expressions.
 - `algparams::AlgorithmParameters`: Expression pool containing generated values for each type.
 
 # Returns
 - `Expr`: A `return` expression for a value compatible with the target return type.
 """
-function generate_return(all_exprs::Dict{DataType, ConstsAndExprs}, algparams::AlgorithmParameters) # returns the statement
+function generate_return(all_exprs::Dict{Type, ConstsAndExprs}, algparams::AlgorithmParamT) where AlgorithmParamT <: AlgorithmParameters # returns the statement
     return_type = algparams.f_return_type
 
     candidates = all_exprs[general_type(return_type)]
@@ -208,13 +196,13 @@ Generate a block containing a statement list for a candidate function body.
 The block always starts with an assignment and then, with probability 1/2, appends a return statement.
 
 # Arguments
-- `all_exprs::Dict{DataType, ConstsAndExprs}`: Dictionary of typed expression pools, including Boolean expressions.
+- `all_exprs::Dict{Type, ConstsAndExprs}`: Dictionary of typed expression pools, including Boolean expressions.
 - `algparams::AlgorithmParameters`: Expression pool containing generated values for each type.
 
 # Returns
 - `Expr`: `:block` expression with one or two statements.
 """
-function generate_block(all_exprs::Dict{DataType, ConstsAndExprs}, algparams::AlgorithmParameters) # returns the statement
+function generate_block(all_exprs::Dict{Type, ConstsAndExprs}, algparams::AlgorithmParamT) where AlgorithmParamT <: AlgorithmParameters # returns the statement
     arg_types = algparams.f_arg_types
     return_type = algparams.f_return_type
 
@@ -232,13 +220,13 @@ Generate an `if` expression using a Boolean condition and one or two generated b
 This helper samples a condition from the Boolean expression pool and synthesizes one or two block bodies with `generate_block`.
 
 # Arguments
-- `all_exprs::Dict{DataType, ConstsAndExprs}`: Dictionary of typed expression pools, including Boolean expressions.
+- `all_exprs::Dict{Type, ConstsAndExprs}`: Dictionary of typed expression pools, including Boolean expressions.
 - `algparams::AlgorithmParameters`: Expression pool containing generated values for each type.
 
 # Returns
 - `Expr`: An `if` expression built from a condition and generated block(s).
 """
-function generate_if(all_exprs::Dict{DataType, ConstsAndExprs}, algparams::AlgorithmParameters) # returns the statement
+function generate_if(all_exprs::Dict{Type, ConstsAndExprs}, algparams::AlgorithmParamT) where AlgorithmParamT <: AlgorithmParameters # returns the statement
     candidates_cond = all_exprs[Bool].exprs
     cond = deepcopy(rand(candidates_cond))
     blocks = [generate_block(all_exprs, algparams) for _ in 1:rand(1:2)]

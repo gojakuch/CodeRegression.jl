@@ -2,10 +2,8 @@
     Generates callable for the candidate function without a callable
 """
 function generate_callable!(cf::CandidateFunction)
-    if isnothing(cf.callable)
-        def = cf.fdecl
-        cf.callable = @RuntimeGeneratedFunction(def)
-    end
+    def = cf.fdecl
+    cf.callable = @RuntimeGeneratedFunction(def)
 
     nothing
 end
@@ -79,8 +77,8 @@ end
     when generating and mutating code we need to keep track of the values but we want to generalise some types for expressions. 
     given a type, returns its generalisation
 """
-function general_type(type::DataType)
-    d = Dict{DataType, DataType}(
+function general_type(type::Type)
+    d = Dict{Type, Type}(
         Int => Integer,
         Int8 => Integer,
         Int16 => Integer,

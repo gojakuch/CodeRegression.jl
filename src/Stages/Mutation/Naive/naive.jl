@@ -1,12 +1,56 @@
 # this file describes the mutation visitor based on the general visitor template in "visitor_template.jl"
 
+struct NaiveMutation <: MutationAlgorithmBackend
+    expr_gen_depth::Int # FIXME: bad design since the generation stage will requite expr_gen_depth to always be in the mutation ackend struct
+    apply_mutate_to_pure_exprs::Bool
+
+    # internal fields (set up through constructors and initialisation automatically, no user input needed)
+    _type_preserving_ops::Dict{Type, Vector{Pair{AllowedOperationDescription, Vector{Int}}}} # for pure expression mutation. only set if apply_mutate_to_pure_exprs==true. the value pair is an operation and a list with indeces of all its parameters of the same type as the one returned.
+
+    # constructors
+    function NaiveMutation(_expr_gen_depth::Int, _apply_mutate_to_pure_exprs::Bool, _all_ops::Dict{Type, Vector{AllowedOperationDescription}})
+        l_type_preserving_ops = Dict{Type, Vector{Pair{AllowedOperationDescription, Vector{Int}}}}()
+        if _apply_mutate_to_pure_exprs
+            for (rtype, ops) in _all_ops
+                l_type_preserving_ops[rtype] = AllowedOperationDescription[]
+                for op in ops
+                    op_added = false
+                    idx_arr = Int[]
+                    for p_i in eachindex(op.params)
+                        if op.params[p_i].type == rtype # assumes that both types are already generalised
+                            if !op_added
+                                push!(l_type_preserving_ops[rtype], (op => idx_arr))
+                                op_added = true
+                            end
+                            push!(idx_arr, p_i)
+                        end
+                    end
+                end
+            end
+        end
+
+        return new(
+            _expr_gen_depth,
+            _apply_mutate_to_pure_exprs,
+            l_type_preserving_ops
+        )
+    end
+
+    function NaiveMutation(_expr_gen_depth::Int)
+        return new(
+            _expr_gen_depth, false, Dict{Type, Vector{Pair{AllowedOperationDescription, Vector{Int}}}}()
+        )
+    end
+end
+
+
 """
 Reject mutation of nested function declarations.
 
 # Throws
 - `String`: Nested function declarations are not supported.
 """
-function mutate_function!(::Expr, ::__MutationContext)
+function mutate_function!(::Expr, ::__MutationContext, naive::NaiveMutation)
     throw("tried to modify a nested function decl. nested functions are not allowed")
 end
 
@@ -35,10 +79,11 @@ Randomly insert, delete, or recursively mutate a statement in a block.
 
 # Arguments
 - `mc::__MutationContext`: Mutation state containing the expression pool and operator definitions.
+- `naive::NaiveMutation`: to tell the compiler to use the naive mutation backend for this operation.
 
 The `body` expression is mutated in place.
 """
-function mutate_block!(body::Expr, mc::__MutationContext)
+function mutate_block!(body::Expr, mc::__MutationContext, naive::NaiveMutation)
     # just add smth before the return (random line)
     r = rand()
     # body_args = get_body(new_f).args
@@ -63,18 +108,20 @@ function mutate_block!(body::Expr, mc::__MutationContext)
     end
 
     # do we need to modify the return in the end?
-    mutate!(body.args[ind], mc)
+    mutate!(body.args[ind], mc, naive)
 end
+
 
 """
 Mutate an `if` condition or insert a statement into one of its branches.
 
 # Arguments
 - `mc::__MutationContext`: Mutation state containing the expression pool and operator definitions.
+- `naive::NaiveMutation`: to tell the compiler to use the naive mutation backend for this operation.
 
 The `if_expr` expression is mutated in place.
 """
-function mutate_if!(if_expr::Expr, mc::__MutationContext)
+function mutate_if!(if_expr::Expr, mc::__MutationContext, naive::NaiveMutation)
     # choose if we modify the body or cond
     # recursion here later
     r = rand()
@@ -96,6 +143,7 @@ function mutate_if!(if_expr::Expr, mc::__MutationContext)
     end
 end
 
+
 """
 This function is used to mutate RHS of assignments or subexpressions of 
 return statements. Note: it does not follow the typical mutation visitor pattern
@@ -103,15 +151,16 @@ because it does not mutate the original expression, returning a new one instead.
 
 # Arguments
 - `ex`: Pure expression, symbol, or literal to mutate.
-- `dt::DataType`: Declared type of `ex`.
+- `dt::Type`: Declared type of `ex`.
 - `mc::__MutationContext`: Mutation state containing the expression pool and operator definitions.
+- `naive::NaiveMutation`: to tell the compiler to use the naive mutation backend for this operation. Also contains some necessary information
 
 # Returns
 - `Expr` or `Symbol` if it did nothing to ex and ex was `Symbol`
 """
-function mutate_pure_expression(ex, dt::DataType, mc::__MutationContext)
+function mutate_pure_expression(ex, dt::Type, mc::__MutationContext, naive::NaiveMutation)
     gdt = general_type(dt)
-    if !mc.f.algparams_ref.apply_mutate_to_pure_exprs || !(haskey(mc.f.algparams_ref._type_preserving_ops, gdt)) || isempty(mc.f.algparams_ref._type_preserving_ops[gdt])
+    if !naive.apply_mutate_to_pure_exprs || !(haskey(naive._type_preserving_ops, gdt)) || isempty(naive._type_preserving_ops[gdt])
         # if apply_mutate_to_pure_exprs==false or there are no type-preserving operators for `gdt` return a random expression of this type (if possible)
         if !(haskey(mc.all_exprs, gdt)) || isempty(mc.all_exprs[gdt])
             @warn "`mutate_pure_expression` could not mutate expression `"*string(ex)*"`, returning a copy."
@@ -125,11 +174,11 @@ function mutate_pure_expression(ex, dt::DataType, mc::__MutationContext)
     seems_atomic = typeof(ex) != Expr || (ex.head == :call && ex.args[1] == :_cw_) # TODO: is everything covered by this check?
     if seems_atomic || 3*r < 1
         # add something: apply a random type-preserving operation
-        n = length(mc.f.algparams_ref._type_preserving_ops[gdt])
+        n = length(naive._type_preserving_ops[gdt])
         first_rand_op_idx = rand_op_idx = rand(1:n)
         while rand_op_idx < first_rand_op_idx + n # we have n tries just in case
             remainder = rand_op_idx % n
-            (op, idx_arr) = mc.f.algparams_ref._type_preserving_ops[gdt][(remainder==0) ? n : remainder]
+            (op, idx_arr) = naive._type_preserving_ops[gdt][(remainder==0) ? n : remainder]
             selected_i = rand(idx_arr) 
             args = []
             arg_generation_success = true
@@ -164,7 +213,7 @@ function mutate_pure_expression(ex, dt::DataType, mc::__MutationContext)
 
         # 1. if the expression is formed using a type-preserving operation, just get one of its arguments and return
         if ex.head == :call
-            for (op, param_idx_arr) in mc.f.algparams_ref._type_preserving_ops[gdt]
+            for (op, param_idx_arr) in naive._type_preserving_ops[gdt]
                 if op.callee == ex.args[1] && length(op.params) == (length(ex.args)-1) # FIXME: this is not enough. some argument types might still differ
                     param_idx = rand(param_idx_arr)+1
                     return deepcopy(ex.args[param_idx])
@@ -181,7 +230,7 @@ function mutate_pure_expression(ex, dt::DataType, mc::__MutationContext)
                 if op.callee == ex.args[1] && length(op.params) == (length(ex.args)-1) # FIXME: this is not enough. some argument types might still differ
                     new_ex = deepcopy(ex)
                     param_idx = rand(eachindex(op.params))+1
-                    new_ex.args[param_idx] = mutate_pure_expression(new_ex.args[param_idx], op.params[param_idx-1].type, mc) # FIXME: tis can mess up the `can_be_const`
+                    new_ex.args[param_idx] = mutate_pure_expression(new_ex.args[param_idx], op.params[param_idx-1].type, mc, naive) # FIXME: tis can mess up the `can_be_const`
                     return new_ex
                 end
             end
@@ -199,15 +248,16 @@ Replace the `right-hand` side of an assignment with a type-preserving `mutated` 
 # Arguments
 - `assign_expr::Expr`: Assignment expression whose right-hand side will be replaced.
 - `mc::__MutationContext`: Mutation state containing the expression pool and operator definitions.
+- `naive::NaiveMutation`: to tell the compiler to use the naive mutation backend for this operation.
 
 # Returns
 - `Nothing`: The input assignment node is mutated in place.
 """
-function mutate_assign!(assign_expr::Expr, mc::__MutationContext)
+function mutate_assign!(assign_expr::Expr, mc::__MutationContext, naive::NaiveMutation)
     # potential SR.jl integration here (optional)
 
     var = assign_expr.args[1] # TODO: add a possible lhs modification with proper types
-    assign_expr.args[2] = mutate_pure_expression(assign_expr.args[2], mc.f.algparams_ref.f_arg_types[var], mc)
+    assign_expr.args[2] = mutate_pure_expression(assign_expr.args[2], mc.f.algparams_ref.f_arg_types[var], mc, naive)
 end
 
 
@@ -217,12 +267,13 @@ Replace `return` expression with a type-preserving mutated expression.
 # Arguments
 - `r::Expr`: Return expression whose value will be replaced.
 - `mc::__MutationContext`: Mutation state containing the expression pool and operator definitions.
+- `naive::NaiveMutation`: to tell the compiler to use the naive mutation backend for this operation.
 
 # Returns
 - `Nothing`: The input return expression is mutated in place.
 """
-function mutate_return!(r::Expr, mc::__MutationContext)
-    r.args[1] = mutate_pure_expression(r.args[1], mc.f.algparams_ref.f_return_type, mc)
+function mutate_return!(r::Expr, mc::__MutationContext, naive::NaiveMutation)
+    r.args[1] = mutate_pure_expression(r.args[1], mc.f.algparams_ref.f_return_type, mc, naive)
 end
 
 
@@ -231,8 +282,9 @@ Report that direct mutation of call expressions is not implemented.
 
 # Arguments
 - `mc::__MutationContext`: Mutation state containing the expression pool and operator definitions.
+- `naive::NaiveMutation`: to tell the compiler to use the naive mutation backend for this operation.
 """
-function mutate_call!(c::Expr, mc::__MutationContext)
+function mutate_call!(c::Expr, mc::__MutationContext, naive::NaiveMutation)
     @warn "cannot mutate calls yet" # TODO: implement this like in `mutate_pure_expression`
 end
 
@@ -243,11 +295,12 @@ Dispatch an expression to the mutation visitor associated with its expression he
 # Arguments
 - `e::Expr`: Expression node to mutate.
 - `mc::__MutationContext`: Mutation state containing the expression pool and operator definitions.
+- `naive::NaiveMutation`: to tell the compiler to use the naive mutation backend.
 
 # Returns
 - `Nothing`: The input expression may be mutated in place.
 """
-function mutate!(e::Expr, mc::__MutationContext)
+function mutate!(e::Expr, mc::__MutationContext, naive::NaiveMutation)
     dispatch = Dict(
         :function => mutate_function!,
         :block => mutate_block!,
@@ -257,7 +310,7 @@ function mutate!(e::Expr, mc::__MutationContext)
         :call => mutate_call!
     )
     if haskey(dispatch, e.head)
-        dispatch[e.head](e, mc)
+        dispatch[e.head](e, mc, naive)
     end
 end
 
@@ -269,13 +322,15 @@ The only mutate wrapper the user should call!
 
 # Arguments
 - `cf::CandidateFunction`: Original candidate function to mutate.
+- `naive::NaiveMutation`: to tell the compiler to use the naive mutation backend for this operation.
 
 # Returns
 - `CandidateFunction`: A new candidate with a deep-copied declaration and the same `algparams_ref`.
 """
-function mutate(cf::CandidateFunction{T})::CandidateFunction{T} where T
+function mutate(cf::CandidateFunction{C,A}, naive::NaiveMutation)::CandidateFunction{C,A} where {C,A}
     new_f = deepcopy(cf.fdecl)
-    new_cf = CandidateFunction{T}(new_f, cf.algparams_ref)
-    mutate!(get_body(new_f), __MutationContext(new_cf))
+    new_cf = CandidateFunction{C,A}(new_f, cf.algparams_ref)
+    mutate!(get_body(new_f), __MutationContext(new_cf), naive)
+    generate_callable!(new_cf)
     return new_cf
 end
