@@ -105,7 +105,6 @@ struct AlgorithmParameters{
     # problem setup details (function signature)
     f_arg_types::NamedTuple
     f_return_type::Type
-
     # algorithm details
     all_ops::Dict{Type, Vector{AllowedOperationDescription}}
     # stages:
@@ -118,6 +117,7 @@ struct AlgorithmParameters{
     ## literal optimisation
     apply_literal_optim::Bool
     literal_optim_iters::Int
+
 end
 
 
@@ -154,14 +154,14 @@ Create linked algorithm parameters and an initial candidate function.
 - `Tuple{AlgorithmParameters, CandidateFunction{_candidate_function_criterion_type}}`: The configuration and candidate sharing that configuration.
 """
 function init(
-    _initial_fdecl::Expr, 
-    _f_return_type::Type, 
-    _all_ops::Dict{Type, Vector{AllowedOperationDescription}}, 
+    _initial_fdecl::Expr,
+    _f_return_type::Type,
+    _all_ops::Dict{Type, Vector{AllowedOperationDescription}},
     _mutation_backend::MutationType,
     _crossover_backend::CrossoverType,
     _selection_backend::SelectionType,
-    _apply_literal_optim::Bool, 
-    _literal_optim_iters::Int, 
+    _apply_literal_optim::Bool,
+    _literal_optim_iters::Int,
     ::Type{CT}
 ) where {MutationType <: MutationAlgorithmBackend, CrossoverType <: CrossoverAlgorithmBackend, SelectionType <: SelectionAlgorithmBackend, CT}
     algparams = AlgorithmParameters(

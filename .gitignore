@@ -25,3 +25,4 @@ LocalPreferences.toml
 JuliaLocalPreferences.toml
 
 .vscode
+.env

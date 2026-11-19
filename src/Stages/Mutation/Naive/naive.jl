@@ -1,14 +1,31 @@
 # this file describes the mutation visitor based on the general visitor template in "visitor_template.jl"
 
+_default_statement_weights() = Dict(
+    :assignment => 1.0,
+    :return => 1.0,
+    :if => 2.0,
+)
+
+
 struct NaiveMutation <: MutationAlgorithmBackend
     expr_gen_depth::Int # FIXME: bad design since the generation stage will requite expr_gen_depth to always be in the mutation ackend struct
     apply_mutate_to_pure_exprs::Bool
+    statement_weights::Dict{Symbol, Float64} # FIXME: generation currently requires every mutation backend to provide statement weights.
 
     # internal fields (set up through constructors and initialisation automatically, no user input needed)
     _type_preserving_ops::Dict{Type, Vector{Pair{AllowedOperationDescription, Vector{Int}}}} # for pure expression mutation. only set if apply_mutate_to_pure_exprs==true. the value pair is an operation and a list with indeces of all its parameters of the same type as the one returned.
 
     # constructors
-    function NaiveMutation(_expr_gen_depth::Int, _apply_mutate_to_pure_exprs::Bool, _all_ops::Dict{Type, Vector{AllowedOperationDescription}})
+    function NaiveMutation(
+        _expr_gen_depth::Int,
+        _apply_mutate_to_pure_exprs::Bool,
+        _all_ops::Dict{Type, Vector{AllowedOperationDescription}};
+        statement_weights::AbstractDict{Symbol, <:Real}=_default_statement_weights(),
+    )
+        for kind in keys(statement_weights)
+            kind in (:assignment, :return, :if) || throw(ArgumentError("unknown statement kind in statement_weights: $kind"))
+        end
+
         l_type_preserving_ops = Dict{Type, Vector{Pair{AllowedOperationDescription, Vector{Int}}}}()
         if _apply_mutate_to_pure_exprs
             for (rtype, ops) in _all_ops
@@ -32,13 +49,24 @@ struct NaiveMutation <: MutationAlgorithmBackend
         return new(
             _expr_gen_depth,
             _apply_mutate_to_pure_exprs,
+            statement_weights,
             l_type_preserving_ops
         )
     end
 
-    function NaiveMutation(_expr_gen_depth::Int)
+    function NaiveMutation(
+        _expr_gen_depth::Int;
+        statement_weights::AbstractDict{Symbol, <:Real}=_default_statement_weights(),
+    )
+        for kind in keys(statement_weights)
+            kind in (:assignment, :return, :if) || throw(ArgumentError("unknown statement kind in statement_weights: $kind"))
+        end
+
         return new(
-            _expr_gen_depth, false, Dict{Type, Vector{Pair{AllowedOperationDescription, Vector{Int}}}}()
+            _expr_gen_depth,
+            false,
+            statement_weights,
+            Dict{Type, Vector{Pair{AllowedOperationDescription, Vector{Int}}}}()
         )
     end
 end
