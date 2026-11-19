@@ -125,19 +125,18 @@ function generate_stmt(all_exprs::Dict{Type, ConstsAndExprs}, algparams::Algorit
         (:if, generate_if),
     )
     has_condition = !isempty(all_exprs[Bool].exprs)
+    #adjust weights if there is no condition for "if" expression, otherwise just assign weights
     weights = map(generators) do (kind, _)
-        kind == :if && !has_condition ? 0.0 : algparams.statement_weights[kind]
+        kind == :if && !has_condition ? 0.0 : algparams.mutation_backend.statement_weights[kind]
     end
 
-    max_weight = maximum(weights)
-    max_weight > 0 || throw(ArgumentError("statement_weights must give positive weight to at least one currently available statement kind"))
-    scaled_weights = map(weight -> weight / max_weight, weights)
-    total_weight = sum(scaled_weights)
+    total_weight = sum(weights)
+    total_weight > 0 || throw(ArgumentError("sum of weights isn't positive"))
 
     choice = rand()
     cumulative_weight = 0.0
     for (i, (_, generator)) in enumerate(generators)
-        cumulative_weight += scaled_weights[i] / total_weight
+        cumulative_weight += weights[i] / total_weight
         if choice < cumulative_weight
             return generator(all_exprs, algparams)
         end

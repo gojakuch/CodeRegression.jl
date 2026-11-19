@@ -43,26 +43,25 @@ end
 @testset verbose=true "tests" begin
     @testset "static statement generation weights" begin
         weights = Dict(:assignment => 1.0, :return => 0.0, :if => 0.0)
-        algparams, _ = CodeRegression.init(
+        assignment_only, _ = CodeRegression.init(
             :(function (x::Float64)
                 return x
             end),
             Float64,
             Dict{Type, Vector{AllowedOperationDescription}}(),
-            NaiveMutation(0),
+            NaiveMutation(0; statement_weights=weights),
             SimpleMyers(),
             Truncation(0, 0),
             false,
             0,
-            Float64;
-            statement_weights=weights,
+            Float64,
         )
-        all_exprs = CodeRegression.Stages.Mutation.Core.Generation.generate_exprs(algparams)
+        all_exprs = CodeRegression.Stages.Mutation.Core.Generation.generate_exprs(assignment_only)
         all_exprs[Bool] = CodeRegression.Utils.ConstsAndExprs(Expr[], Any[:(x > 0)])
 
-        @test algparams.statement_weights == weights
+        @test assignment_only.mutation_backend.statement_weights == weights
         for _ in 1:20
-            statement = CodeRegression.Stages.Mutation.Core.Generation.generate_stmt(all_exprs, algparams)
+            statement = CodeRegression.Stages.Mutation.Core.Generation.generate_stmt(all_exprs, assignment_only)
             @test statement.head == :(=)
         end
         return_only, _ = CodeRegression.init(
@@ -71,13 +70,12 @@ end
             end),
             Float64,
             Dict{Type, Vector{AllowedOperationDescription}}(),
-            NaiveMutation(0),
+            NaiveMutation(0; statement_weights=Dict(:assignment => 0.0, :return => 1.0, :if => 0.0)),
             SimpleMyers(),
             Truncation(0, 0),
             false,
             0,
-            Float64;
-            statement_weights=Dict(:assignment => 0.0, :return => 1.0, :if => 0.0),
+            Float64,
         )
         for _ in 1:20
             statement = CodeRegression.Stages.Mutation.Core.Generation.generate_stmt(all_exprs, return_only)
@@ -89,13 +87,12 @@ end
             end),
             Float64,
             Dict{Type, Vector{AllowedOperationDescription}}(),
-            NaiveMutation(0),
+            NaiveMutation(0; statement_weights=Dict(:assignment => 0.0, :return => 0.0, :if => 1.0)),
             SimpleMyers(),
             Truncation(0, 0),
             false,
             0,
-            Float64;
-            statement_weights=Dict(:assignment => 0.0, :return => 0.0, :if => 1.0),
+            Float64,
         )
         for _ in 1:20
             statement = CodeRegression.Stages.Mutation.Core.Generation.generate_stmt(all_exprs, if_only)
@@ -109,13 +106,12 @@ end
             end),
             Float64,
             Dict{Type, Vector{AllowedOperationDescription}}(),
-            NaiveMutation(0),
+            NaiveMutation(0; statement_weights=Dict(:unknown => 1.0)),
             SimpleMyers(),
             Truncation(0, 0),
             false,
             0,
-            Float64;
-            statement_weights=Dict(:unknown => 1.0),
+            Float64,
         )
     end
 
